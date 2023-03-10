@@ -49,6 +49,7 @@
 #include "net/netstack.h"
 #include "leds.h" /* To be removed after debugging */
 #include <stdbool.h>
+#include <stdio.h>
 #include "dev/watchdog.h"
 /*---------------------------------------------------------------------------*/
 #include "deca_device_api.h"
@@ -135,6 +136,7 @@ static radio_result_t dw1000_set_object(radio_param_t param, const void *src, si
 static void
 rx_ok_cb(const dwt_cb_data_t *cb_data)
 {
+	printf("CALLBACK_RX_OK\n");
   /*LEDS_TOGGLE(LEDS_GREEN); */
 #if DW1000_RANGING_ENABLED
   if(cb_data->rx_flags & DWT_CB_DATA_RX_FLAG_RNG) {
@@ -165,6 +167,7 @@ rx_ok_cb(const dwt_cb_data_t *cb_data)
 static void
 rx_to_cb(const dwt_cb_data_t *cb_data)
 {
+  printf("CALLBACK_RX_TO\n");
 #if DW1000_RANGING_ENABLED
   dw1000_range_reset();
 #endif
@@ -183,6 +186,7 @@ rx_to_cb(const dwt_cb_data_t *cb_data)
 static void
 rx_err_cb(const dwt_cb_data_t *cb_data)
 {
+  printf("CALLBACK_RX_ERR: %d\n", cb_data->status);
 #if DW1000_RANGING_ENABLED
   dw1000_range_reset();
 #endif
@@ -204,7 +208,7 @@ tx_conf_cb(const dwt_cb_data_t *cb_data)
 {
   /* Set LED PC9 */
   /*LEDS_TOGGLE(LEDS_ORANGE); */
-
+	printf("CALLBACK_TX_OK\n");
 #if DW1000_RANGING_ENABLED
   dw1000_rng_tx_conf_cb(cb_data);
 #endif
@@ -244,12 +248,12 @@ dw1000_init(void)
   auto_ack_enabled = false;
 
 #if DW1000_FRAMEFILTER == 1
-  dw1000_set_value(RADIO_PARAM_RX_MODE, RADIO_RX_MODE_ADDRESS_FILTER);
+  // dw1000_set_value(RADIO_PARAM_RX_MODE, RADIO_RX_MODE_ADDRESS_FILTER);
 #endif /* DW1000_FRAMEFILTER */
 
   /* Set the DW1000 ISR */
   dw1000_set_isr(dwt_isr);
-
+	printf("HEREEEEEEEEEEEEE\n");
   /* Register TX/RX callbacks. */
   dwt_setcallbacks(&tx_conf_cb, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
   /* Enable wanted interrupts (TX confirmation, RX good frames, RX timeouts and RX errors). */

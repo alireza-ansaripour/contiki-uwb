@@ -13,13 +13,13 @@
 #if APP_RADIO_CONF == 1
 #define DW1000_CONF_CHANNEL        5
 #define DW1000_CONF_PRF            DWT_PRF_64M
-#define DW1000_CONF_PLEN           DWT_PLEN_1024
-#define DW1000_CONF_PAC            DWT_PAC8
+#define DW1000_CONF_PLEN           DWT_PLEN_128
+#define DW1000_CONF_PAC            DWT_PAC16
 #define DW1000_CONF_SFD_MODE       0
 #define DW1000_CONF_DATA_RATE      DWT_BR_6M8
 #define DW1000_CONF_PHR_MODE       DWT_PHRMODE_STD
 #define DW1000_CONF_PREAMBLE_CODE  9
-#define DW1000_CONF_SFD_TIMEOUT    (129 + 8 - 8)
+#define DW1000_CONF_SFD_TIMEOUT    (2000 + 8 - 8)
 
 #elif APP_RADIO_CONF == 2
 #define DW1000_CONF_CHANNEL        2

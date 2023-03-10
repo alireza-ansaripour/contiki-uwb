@@ -39,19 +39,16 @@
 #include "dw1000-ranging.h"
 
 #include "core/net/linkaddr.h"
-#include "callbacks.h"
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
-AUTOSTART_PROCESSES(&range_process);
+PROCESS(cnt_rx_frames, "count rx frames");
+AUTOSTART_PROCESSES(&range_process, &cnt_rx_frames);
 /*---------------------------------------------------------------------------*/
-#define RANGING_TIMEOUT (CLOCK_SECOND / 10)
-/*---------------------------------------------------------------------------*/
-#if LINKADDR_SIZE == 2
-linkaddr_t dst = {{0x5a, 0x34}};
-#elif LINKADDR_SIZE == 8
-linkaddr_t dst = {{0x01, 0x3a, 0x61, 0x02, 0xc4, 0x40, 0x5a, 0x34}};
-#endif
-/*---------------------------------------------------------------------------*/
+
+
+
+
+
 
 uint8_t msg[] = {0, 0, 0, 0, 0 , 0, 0 ,0};
 static const frame802154_t default_header = {
@@ -71,49 +68,39 @@ static const frame802154_t default_header = {
   .src_pid  = IEEE802154_PANID,
 };
 
-typedef struct {
-  /* SS and DS timeouts */
-  uint32_t a;
-  uint32_t rx_dly_a;
-  uint16_t to_a;
-
-/* DS timeouts */
-  uint32_t rx_dly_b;
-  uint32_t b;
-  uint16_t to_b;
-  uint16_t to_c;
-
-} ranging_conf_t;
-
-
-const static ranging_conf_t ranging_conf_110K = {
-/* SS and DS timeouts */
-  .a = 3000,
-  .rx_dly_a = 0,
-  .to_a = 4000,
-
-/* DS timeouts */
-  .b = 3000,
-  .rx_dly_b = 0,
-  .to_b = 4500,
-  .to_c = 3500, /* 3000 kind of works, too */
-};
-
-const static ranging_conf_t ranging_conf_6M8 = {
-/* SS and DS timeouts */
-  .a = 650,
-  .rx_dly_a = 400,    // timeout starts after this
-  .to_a = 300,
-
-/* DS timeouts */
-  .b = 650,
-  .rx_dly_b = 400,    // timeout starts after this
-  .to_b = 300,
-  .to_c = 650,        // longer as there's no rx after tx delay
-};
 
 #define MAX_BUF_LEN 36
 static uint8_t rtx_buf[MAX_BUF_LEN];
+int rx_cnt = 0;
+int rx_err_cnt = 0;
+int tx_num = 0;
+
+void rx_ok_cb(const dwt_cb_data_t *cb_data){
+  rx_cnt += 1;
+  // printf("RX Ok CB receiver: %d\n", rx_cnt);
+  dwt_forcetrxoff();
+  dwt_rxenable(DWT_START_RX_IMMEDIATE);
+  
+}
+
+void rx_err_cb(const dwt_cb_data_t *cb_data){
+  rx_err_cnt += 1;
+  dwt_forcetrxoff();
+  dwt_rxenable(DWT_START_RX_IMMEDIATE);
+  printf("RX ERR CB receiver: %d\n", cb_data->status);
+}
+
+PROCESS_THREAD(cnt_rx_frames, ev, data){
+  static struct etimer et;
+
+  PROCESS_BEGIN();
+  printf("STARTING RX task\n");
+  etimer_set(&et, CLOCK_SECOND * 100);
+  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  printf("RX report: %d, %d\n", rx_cnt, rx_err_cnt);
+  PROCESS_END();
+}
+
 
 PROCESS_THREAD(range_process, ev, data)
 {
@@ -121,48 +108,17 @@ PROCESS_THREAD(range_process, ev, data)
   // static struct etimer timeout;
   // static int status;
   uint8_t irq_status;
-  const dwt_cb_data_t dd;
-  // tx_ok_cb(&dd);
 
   PROCESS_BEGIN();
-  
-  // printf("I am %02x%02x dst %02x%02x\n",
-  //        linkaddr_node_addr.u8[0],
-  //        linkaddr_node_addr.u8[1],
-  //        dst.u8[0],
-  //        dst.u8[1]);
-
-  // if(!linkaddr_cmp(&linkaddr_node_addr, &dst)) {
-
-  //   etimer_set(&et, 5 * CLOCK_SECOND);
-  //   PROCESS_WAIT_UNTIL(etimer_expired(&et));
-  //   printf("I am %02x%02x ranging with %02x%02x\n",
-  //          linkaddr_node_addr.u8[0],
-  //          linkaddr_node_addr.u8[1],
-  //          dst.u8[0],
-  //          dst.u8[1]);
-
-  //   while(1) {
-  //     printf("R req\n");
-  //     status = range_with(&dst, DW1000_RNG_DS);
-  //     if(!status) {
-  //       printf("R req failed\n");
-  //     } else {
-  //       etimer_set(&timeout, RANGING_TIMEOUT);
-  //       PROCESS_YIELD_UNTIL((ev == ranging_event || etimer_expired(&timeout)));
-  //       if(etimer_expired(&timeout)) {
-  //         printf("R TIMEOUT\n");
-  //       } else if(((ranging_data_t *)data)->status) {
-  //         ranging_data_t *d = data;
-  //         printf("R success: %d bias %d\n", (int)(100*d->raw_distance), (int)(100*d->distance));
-  //       } else {
-  //         printf("R FAIL\n");
-  //       }
-  //     }
-  //     etimer_set(&et, CLOCK_SECOND / 50);
-  //     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-  //   }
-  // }
+  frame802154_t frame2 = default_header;
+  printf("TEST receiver 7\n");
+  dwt_setcallbacks(NULL, &rx_ok_cb, NULL, &rx_err_cb);
+  dwt_forcetrxoff();
+  dwt_rxenable(DWT_START_RX_IMMEDIATE);
+  while (1){
+    etimer_set(&et, CLOCK_SECOND);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  }
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/

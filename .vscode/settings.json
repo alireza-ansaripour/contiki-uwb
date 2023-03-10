@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "contiki.h": "c",
+        "dw1000-ranging.h": "c"
+    }
+}
