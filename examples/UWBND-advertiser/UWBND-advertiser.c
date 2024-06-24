@@ -84,6 +84,8 @@ int back_off = 0;
 int P2_timeout = 0;
 int CLS_timeout = 0;
 bool config_change = false;
+int sniff_counter = 0;
+int false_wake_up_cnt = 0;
 /*---------------------------------------------------------------------------*/
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
@@ -114,8 +116,11 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_rxreset();
   switch (detection_status){
   case RX_WAK_P1:
-    detection_status = RX_WAK_P2;
-    printf("Detected WaC1: %d\n", node_id);
+    detection_status = RX_WAK_P1;
+    false_wake_up_cnt++;
+    printf("Detected WaC1: %d, %d, %d\n", node_id, sniff_counter, false_wake_up_cnt);
+    
+    sniff_counter = 0;
     break;
   case RX_WAK_P2:
     detection_status = WAITING;
@@ -163,7 +168,7 @@ PROCESS_THREAD(range_process, ev, data)
   }else{
     printf("Failed to set nodeID\n");
   }
-  printf("PAC size 0x%x\n", config.rxPAC);
+  printf("This is the new version \n");
   // deployment_print_id_info();
   etimer_set(&et, CLOCK_SECOND * 1);
   dwt_configure(&config);
@@ -173,7 +178,8 @@ PROCESS_THREAD(range_process, ev, data)
   payload[2] = node_id;
   memcpy(&payload[2], (uint8_t *) &node_id, 2);
   detection_status = RX_WAK_P1;
-  
+  sniff_counter = 0;
+  false_wake_up_cnt = 0;  
 
   while (1){
     etimer_set(&et, 1);
@@ -203,6 +209,7 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       P2_timeout = 0;
       CLS_timeout = 0;
+      sniff_counter++;
     }
     if (detection_status == RX_WAK_P2){
       config_change = false;

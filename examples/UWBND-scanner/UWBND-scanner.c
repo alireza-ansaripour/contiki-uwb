@@ -148,29 +148,26 @@ PROCESS_THREAD(range_process, ev, data)
 
   while (1){
     index_cnt = 0;
-    detection_status = CCA_1;
-    if (detection_status == CCA_1){
-      config.rxCode = 9;
-      config.prf = DWT_PRF_64M;
-      dwt_configure(&config);
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 10);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    }
-    if (detection_status == CCA_2){
-      config.rxCode = 5;
-      config.prf = DWT_PRF_16M;
-      dwt_configure(&config);
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 10);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      if (detection_status != RX){
-        detection_status = TX;
-      }
-    }
-    if(detection_status == RX){
-
-    }else{
+    // detection_status = CCA_1;
+    // if (detection_status == CCA_1){
+    //   config.rxCode = 9;
+    //   config.prf = DWT_PRF_64M;
+    //   dwt_configure(&config);
+    //   dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    //   etimer_set(&et, 10);
+    //   PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    // }
+    // if (detection_status == CCA_2){
+    //   config.rxCode = 5;
+    //   config.prf = DWT_PRF_16M;
+    //   dwt_configure(&config);
+    //   dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    //   etimer_set(&et, 10);
+    //   PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    //   if (detection_status != RX){
+    //     detection_status = TX;
+    //   }
+    // }
       printf("Start sending WaK\n");
       /* ------------------------ Sending WaC1 --------------------------------*/
       stop_trans = 0;
@@ -226,7 +223,7 @@ PROCESS_THREAD(range_process, ev, data)
       etimer_set(&et, CLOCK_SECOND * (1 + r % 4));
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       /* code */
-    }
+    // }
   }
   
 

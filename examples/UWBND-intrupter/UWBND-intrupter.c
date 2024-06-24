@@ -51,13 +51,14 @@ PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
+#define TX_INTERVAL 30
 
 uint8_t payload[3];
 
 dwt_config_t config = {
     3, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
-    DWT_PLEN_2048, /* Preamble length. Used in TX only. */
+    DWT_PLEN_4096, /* Preamble length. Used in TX only. */
     DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
@@ -103,8 +104,8 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
 
 
 
-#define WaC_LEN_MS 105
-#define LISTEN_LEN_MS 30
+uint16_t wait, wait2;
+
 
 PROCESS_THREAD(range_process, ev, data)
 {
@@ -115,6 +116,7 @@ PROCESS_THREAD(range_process, ev, data)
   PROCESS_BEGIN();
   static struct etimer et;
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
+  etimer_set(&et, 5 * CLOCK_SECOND);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
@@ -130,10 +132,15 @@ PROCESS_THREAD(range_process, ev, data)
     index_cnt = 0;
     stop_trans = 0;
     dwt_forcetrxoff();
+    wait = (random_rand() % (TX_INTERVAL));
+    wait2 = 30 - wait;
     dwt_writetxfctrl(sizeof(payload), 0, 0);
-    dwt_starttx(DWT_START_TX_IMMEDIATE);
-    etimer_set(&et, 20); // TX frame for 105 ms
+    etimer_set(&et, 1 + wait); // wait for some time after the transmission
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    dwt_starttx(DWT_START_TX_IMMEDIATE);
+    etimer_set(&et, wait2); // wait for some time after the transmission
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    
   }
   
 
