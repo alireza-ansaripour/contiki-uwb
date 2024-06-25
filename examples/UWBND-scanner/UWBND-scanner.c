@@ -147,6 +147,7 @@ PROCESS_THREAD(range_process, ev, data)
   index_cnt = 0;
 
   while (1){
+     index_cnt = 0;
     printf("Start sending WaK\n");
     /* ------------------------ Sending WaC1 --------------------------------*/
     stop_trans = 0;
