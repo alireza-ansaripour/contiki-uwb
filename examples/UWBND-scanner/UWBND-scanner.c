@@ -147,86 +147,60 @@ PROCESS_THREAD(range_process, ev, data)
   index_cnt = 0;
 
   while (1){
-    index_cnt = 0;
-    detection_status = CCA_1;
-    if (detection_status == CCA_1){
-      config.rxCode = 9;
-      config.prf = DWT_PRF_64M;
-      dwt_configure(&config);
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 10);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    }
-    if (detection_status == CCA_2){
-      config.rxCode = 5;
-      config.prf = DWT_PRF_16M;
-      dwt_configure(&config);
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 10);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      if (detection_status != RX){
-        detection_status = TX;
-      }
-    }
-    if(detection_status == RX){
+    printf("Start sending WaK\n");
+    /* ------------------------ Sending WaC1 --------------------------------*/
+    stop_trans = 0;
+    dwt_forcetrxoff();
+    dwt_writetxfctrl(sizeof(msg), 0, 0);
+    dwt_starttx(DWT_START_TX_IMMEDIATE);
+    etimer_set(&et, WaC1_LEN_MS); // TX WaC1
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    stop_trans = 1; 
+    dwt_forcetrxoff();
+    dwt_rxreset();
+    /* ----------------------- Changing to WaC2 -------------------------------------*/
+    printf("changing config\n");
+    config.prf = DWT_PRF_16M;
+    config.txCode = 5;
+    dwt_configure(&config);
+    dwt_writetxdata(sizeof(msg), msg, 0);
+    dwt_writetxfctrl(sizeof(msg), 0, 0);
+    stop_trans = 0;
+    dwt_starttx(DWT_START_TX_IMMEDIATE);
+    etimer_set(&et, WaC2_LEN_MS); // TX WaC2
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    stop_trans = 1; // Once done TX start RX
+    /*------------------------------------------------------------------------------*/
+    config.prf = DWT_PRF_64M;
+    config.txCode = 9;
+    dwt_configure(&config);
+    // dwt_forcetrxoff(); // Finish Scanning and wait for 30s
+    // etimer_set(&et, 100);
+    // PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    // printf("sending message \n");
+    // dwt_writetxdata(sizeof(msg), msg, 0);
+    // dwt_writetxfctrl(sizeof(msg), 0, 0);
+    // if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
+    //   printf("We fucked up\n");
+    // }
+    // etimer_set(&et, 20);
+    // PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    /*------------------------------------------------------------------------------*/
+    dwt_forcetrxoff();
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    printf("Listening\n");
+    etimer_set(&et, 100);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    
 
-    }else{
-      printf("Start sending WaK\n");
-      /* ------------------------ Sending WaC1 --------------------------------*/
-      stop_trans = 0;
-      dwt_forcetrxoff();
-      dwt_writetxfctrl(sizeof(msg), 0, 0);
-      dwt_starttx(DWT_START_TX_IMMEDIATE);
-      etimer_set(&et, WaC1_LEN_MS); // TX WaC1
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      stop_trans = 1; 
-      dwt_forcetrxoff();
-      dwt_rxreset();
-      /* ----------------------- Changing to WaC2 -------------------------------------*/
-      printf("changing config\n");
-      config.prf = DWT_PRF_16M;
-      config.txCode = 5;
-      dwt_configure(&config);
-      dwt_writetxdata(sizeof(msg), msg, 0);
-      dwt_writetxfctrl(sizeof(msg), 0, 0);
-      stop_trans = 0;
-      dwt_starttx(DWT_START_TX_IMMEDIATE);
-      etimer_set(&et, WaC2_LEN_MS); // TX WaC2
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      stop_trans = 1; // Once done TX start RX
-      /*------------------------------------------------------------------------------*/
-      config.prf = DWT_PRF_64M;
-      config.txCode = 9;
-      dwt_configure(&config);
-      // dwt_forcetrxoff(); // Finish Scanning and wait for 30s
-      // etimer_set(&et, 100);
-      // PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      // printf("sending message \n");
-      // dwt_writetxdata(sizeof(msg), msg, 0);
-      // dwt_writetxfctrl(sizeof(msg), 0, 0);
-      // if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
-      //   printf("We fucked up\n");
-      // }
-      // etimer_set(&et, 20);
-      // PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      /*------------------------------------------------------------------------------*/
-      dwt_forcetrxoff();
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      printf("Listening\n");
-      etimer_set(&et, 100);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      
-
-      printf("Report: %d -> ", index_cnt);
-      for (int i = 0; i < index_cnt; i++){
-        printf("%d, ", report.ids[i]);
-      }
-      printf("\n");
-      unsigned short r = random_rand();
-      etimer_set(&et, CLOCK_SECOND * (1 + r % 4));
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      /* code */
+    printf("Report: %d -> ", index_cnt);
+    for (int i = 0; i < index_cnt; i++){
+      printf("%d, ", report.ids[i]);
     }
+    printf("\n");
+    unsigned short r = random_rand();
+    etimer_set(&et, CLOCK_SECOND * (1 + r % 4));
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
   }
   
 
