@@ -54,14 +54,15 @@ typedef enum{
 }DETECTION_STATUS;
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
-#define PDTO       3
-#define SFD_TO     1
-#define PAC   DWT_PAC8
-#define SNIFF_INTERVAL 100
-#define RAPID_SNIFF_INTERVAL 25
-#define WAC_TO  130
-#define P2_TO_THRESH     500
-#define CLS_TO_THRESH     500
+#define PDTO                            3
+#define SFD_TO                          1
+#define PAC                             DWT_PAC8
+#define SNIFF_INTERVAL                  100
+#define RAPID_SNIFF_INTERVAL            3
+#define WAC_TO                          130
+#define P2_TO_THRESH                    500
+#define CLS_TO_THRESH                   500
+#define CCA_EN                          0
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
     3, /* Channel number. */
@@ -242,11 +243,15 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_configure(&config);
       unsigned short r = random_rand() % 20;
       dwt_setpreambledetecttimeout(200 + (r * 30));
-      etimer_set(&et, RAPID_SNIFF_INTERVAL - 1);
+      etimer_set(&et, RAPID_SNIFF_INTERVAL + 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
+#if (CCA_EN == 1)
       detection_status = CCA;
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
       printf("Starting CCA\n");
+#else
+      detection_status = RDY_TO_TX;
+      printf("TX\n");
+#endif
     }
 
     if (detection_status == CCA){
