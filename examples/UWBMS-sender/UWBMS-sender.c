@@ -48,6 +48,7 @@ PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
 #define FRAME_SIZE          100
 #define PACKET_TS           1
+#define UUS_TO_DWT_TIME 65536
 /*---------------------------------------------------------------------------*/
 typedef struct {
   uint8_t packet_type;
@@ -96,14 +97,16 @@ dwt_txconfig_t txConf = {
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
   txpkt.seq++;
-  if (1){
-    dwt_forcetrxoff();
-    dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
-    dwt_writetxfctrl(FRAME_SIZE, 0, 0);
-    dwt_starttx(DWT_START_TX_IMMEDIATE);
-  }else{
-    printf("TX Done\n");
-  }
+  dwt_forcetrxoff();
+  dwt_rxenable(DWT_START_RX_IMMEDIATE);
+  // if (1){
+  //   dwt_forcetrxoff();
+  //   dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
+  //   dwt_writetxfctrl(FRAME_SIZE, 0, 0);
+  //   dwt_starttx(DWT_START_TX_IMMEDIATE);
+  // }else{
+  //   
+  // }
 }
 
 void rx_err_cb(const dwt_cb_data_t *cb_data){
@@ -115,15 +118,24 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
 }
 
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
+  uint32_t rx_time = dwt_readrxtimestamphi32();
+  dwt_forcetrxoff();
   dwt_readrxdata((uint8_t *) &rxpkt, cb_data->datalength, 0);
+  uint32_t tx_time = rx_time + ((UUS_TO_DWT_TIME * 5000) >> 8);
+  dwt_setdelayedtrxtime(tx_time);
+  dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
+  dwt_writetxfctrl(FRAME_SIZE, 0, 0);
   if (rxpkt.packet_type == PACKET_TS){
-    printf("TS Frame: %d\n", rxpkt.seq);
+    dwt_writetxfctrl(FRAME_SIZE, 0, 0);
+    if (dwt_starttx(DWT_START_TX_DELAYED) == DWT_SUCCESS){
+      printf("TS Frame: %d\n", rxpkt.seq);
+    }else{
+      printf("TX failed \n");
+    }
+    
   }else{
     printf("Something else\n");
   }
-  dwt_forcetrxoff();
-  dwt_rxenable(DWT_START_RX_IMMEDIATE);
-  // printf("TX OK Sender\n");
 }
 
 PROCESS_THREAD(range_process, ev, data)
@@ -133,7 +145,7 @@ PROCESS_THREAD(range_process, ev, data)
 
   PROCESS_BEGIN();
   
-  dwt_setcallbacks(&tx_ok_cb, NULL, NULL, &rx_err_cb);
+  dwt_setcallbacks(&tx_ok_cb, rx_ok_cb, NULL, &rx_err_cb);
 
   if(deployment_set_node_id_ieee_addr()){
     printf("NODE addr set successfully: %d\n", node_id);
@@ -143,24 +155,12 @@ PROCESS_THREAD(range_process, ev, data)
 
   switch (node_id)
   {
-  case 7:
-      config.txCode = 9;
-    break;
-
-  case 9:
+  case 11:
       config.txCode = 10;
     break;
-    
-  case 11:
-      config.txCode = 11;
-    break;
   
-  case 13:
-      config.txCode = 12;
-    break;
-
-  case 15:
-      config.txCode = 13;
+  case 10:
+      config.txCode = 11;
     break;
   
   default:
@@ -184,7 +184,6 @@ PROCESS_THREAD(range_process, ev, data)
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
   // dwt_starttx(DWT_START_TX_IMMEDIATE);
-
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
 
   while (1){

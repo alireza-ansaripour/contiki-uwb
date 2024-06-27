@@ -69,7 +69,7 @@ dwt_config_t config =   {
     5, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_1024, /* Preamble length. Used in TX only. */
-    DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
+    DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
@@ -111,23 +111,11 @@ PROCESS_THREAD(range_process, ev, data)
 
   switch (node_id)
   {
-  case 8:
+  case 13:
       config.rxCode = 10;
-    break;
-
-  case 10:
-      config.rxCode = 9;
-    break;
-    
-  case 12:
-      config.rxCode = 13;
     break;
   
   case 14:
-      config.rxCode = 12;
-    break;
-
-  case 16:
       config.rxCode = 11;
     break;
   

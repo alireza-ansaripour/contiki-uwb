@@ -96,6 +96,7 @@ dwt_txconfig_t txConf = {
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
   txpkt.seq++;
+  printf("TX OK Sender\n");
 }
 
 void rx_err_cb(const dwt_cb_data_t *cb_data){
@@ -103,7 +104,7 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   printf("RX ERR: %x\n", cb_data->status);
-  // printf("TX OK Sender\n");
+  
 }
 
 PROCESS_THREAD(range_process, ev, data)
