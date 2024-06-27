@@ -47,7 +47,6 @@
 PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
 #define FRAME_SIZE          100
-#define PACKET_TS           1
 /*---------------------------------------------------------------------------*/
 typedef struct {
   uint8_t packet_type;
@@ -66,6 +65,7 @@ typedef struct{
   uint8_t sender_id;
   uint32_t ts_seq;
 } data_payload;
+
 
 /*---------------------------------------------------------------------------*/
 
@@ -96,14 +96,6 @@ dwt_txconfig_t txConf = {
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
   txpkt.seq++;
-  if (1){
-    dwt_forcetrxoff();
-    dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
-    dwt_writetxfctrl(FRAME_SIZE, 0, 0);
-    dwt_starttx(DWT_START_TX_IMMEDIATE);
-  }else{
-    printf("TX Done\n");
-  }
 }
 
 void rx_err_cb(const dwt_cb_data_t *cb_data){
@@ -111,18 +103,6 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   printf("RX ERR: %x\n", cb_data->status);
-  // printf("TX OK Sender\n");
-}
-
-void rx_ok_cb(const dwt_cb_data_t *cb_data){
-  dwt_readrxdata((uint8_t *) &rxpkt, cb_data->datalength, 0);
-  if (rxpkt.packet_type == PACKET_TS){
-    printf("TS Frame: %d\n", rxpkt.seq);
-  }else{
-    printf("Something else\n");
-  }
-  dwt_forcetrxoff();
-  dwt_rxenable(DWT_START_RX_IMMEDIATE);
   // printf("TX OK Sender\n");
 }
 
@@ -141,37 +121,11 @@ PROCESS_THREAD(range_process, ev, data)
     printf("Failed to set nodeID\n");
   }
 
-  switch (node_id)
-  {
-  case 7:
-      config.txCode = 9;
-    break;
-
-  case 9:
-      config.txCode = 10;
-    break;
-    
-  case 11:
-      config.txCode = 11;
-    break;
-  
-  case 13:
-      config.txCode = 12;
-    break;
-
-  case 15:
-      config.txCode = 13;
-    break;
-  
-  default:
-    break;
-  }
-
-
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
 
+  txpkt.packet_type = 1;
   txpkt.src = node_id;
   txpkt.dst = 0xffffffff;
   txpkt.seq = 0;
@@ -183,14 +137,14 @@ PROCESS_THREAD(range_process, ev, data)
   etimer_set(&et, CLOCK_SECOND * 3);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
-  // dwt_starttx(DWT_START_TX_IMMEDIATE);
-
-  dwt_rxenable(DWT_START_RX_IMMEDIATE);
-
   while (1){
     // dwt_forcetrxoff();
-    etimer_set(&et, CLOCK_SECOND * 2);
+    etimer_set(&et, 10);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    dwt_forcetrxoff();
+    dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
+    dwt_writetxfctrl(FRAME_SIZE, 0, 0);
+    dwt_starttx(DWT_START_TX_IMMEDIATE);
   }
   printf("shouldn't be here\n");
 

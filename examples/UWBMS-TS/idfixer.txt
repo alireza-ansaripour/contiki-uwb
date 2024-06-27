@@ -1,0 +1,60 @@
+case 0x43056438: 
+nodeID = 138;
+break;
+case 0x43063624: 
+nodeID = 139;
+break;
+case 0x43054361: 
+nodeID = 123;
+break;
+case 0x43014626: 
+nodeID = 137;
+break;
+case 0x43053146: 
+nodeID = 127;
+break;
+case 0x43044838: 
+nodeID = 132;
+break;
+case 0x43014629: 
+nodeID = 136;
+break;
+case 0x43044736: 
+nodeID = 130;
+break;
+case 0x43133861: 
+nodeID = 129;
+break;
+case 0x43053060: 
+nodeID = 133;
+break;
+case 0x43044234: 
+nodeID = 134;
+break;
+case 0x43054366: 
+nodeID = 124;
+break;
+case 0x43013138: 
+nodeID = 140;
+break;
+case 0x43053057: 
+nodeID = 135;
+break;
+case 0x43254525: 
+nodeID = 121;
+break;
+case 0x43214744: 
+nodeID = 128;
+break;
+case 0x43014358: 
+nodeID = 122;
+break;
+case 0x43014547: 
+nodeID = 126;
+break;
+case 0x43044136: 
+nodeID = 131;
+break;
+case 0x43013143: 
+nodeID = 125;
+break;

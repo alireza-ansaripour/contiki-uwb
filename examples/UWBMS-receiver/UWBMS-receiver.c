@@ -37,82 +37,105 @@
 #include <stdio.h>
 #include "dw1000.h"
 #include "dw1000-ranging.h"
-
+#include <sys/node-id.h>
+#include "net/netstack.h"
 #include "core/net/linkaddr.h"
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
-PROCESS(cnt_rx_frames, "count rx frames");
-AUTOSTART_PROCESSES(&range_process, &cnt_rx_frames);
+AUTOSTART_PROCESSES(&range_process);
+/*---------------------------------------------------------------------------*/
+typedef struct {
+  uint8_t packet_type;
+  uint16_t src;
+  uint16_t dst;
+  uint32_t seq;
+  uint8_t payload[1200];
+} packet_t;
+
+typedef struct{
+  uint8_t sender_id;
+  uint8_t config_id;
+} time_sync_payload;
+
+typedef struct{
+  uint8_t sender_id;
+  uint32_t ts_seq;
+} data_payload;
+
+/*---------------------------------------------------------------------------*/
+packet_t rxpkt;
+
+dwt_config_t config =   {
+    5, /* Channel number. */
+    DWT_PRF_64M, /* Pulse repetition frequency. */
+    DWT_PLEN_1024, /* Preamble length. Used in TX only. */
+    DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
+    9, /* TX preamble code. Used in TX only. */
+    9, /* RX preamble code. Used in RX only. */
+    0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
+    DWT_BR_6M8, /* Data rate. */
+    DWT_PHRMODE_STD, /* PHY header mode. */
+    (8000 + 1 + 64 - 64) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
+};
 /*---------------------------------------------------------------------------*/
 
-
-
-
-
-
-uint8_t msg[] = {0, 0, 0, 0, 0 , 0, 0 ,0};
-static const frame802154_t default_header = {
-  .fcf = {
-    .frame_type        = 1, // data
-    .security_enabled  = 0,
-    .frame_pending     = 0,
-    .ack_required      = 0,
-    .panid_compression = 1, // suppress src PAN ID
-    .sequence_number_suppression = 0,
-    .ie_list_present   = 0,
-    .dest_addr_mode    = (LINKADDR_SIZE == 8) ? 3 : 2,
-    .frame_version     = 0,
-    .src_addr_mode     = (LINKADDR_SIZE == 8) ? 3 : 2,
-  },
-  .dest_pid = IEEE802154_PANID,
-  .src_pid  = IEEE802154_PANID,
-};
-
-
-#define MAX_BUF_LEN 36
-static uint8_t rtx_buf[MAX_BUF_LEN];
-int rx_cnt = 0;
-int rx_err_cnt = 0;
-int tx_num = 0;
-
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
-  rx_cnt += 1;
-  // printf("RX Ok CB receiver: %d\n", rx_cnt);
+  dwt_readrxdata((uint8_t *) &rxpkt, 20, 0);
+  printf("RX Ok: %d\n", rxpkt.seq);
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   
 }
 
 void rx_err_cb(const dwt_cb_data_t *cb_data){
-  rx_err_cnt += 1;
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   printf("RX ERR CB receiver: %d\n", cb_data->status);
 }
 
-PROCESS_THREAD(cnt_rx_frames, ev, data){
-  static struct etimer et;
-
-  PROCESS_BEGIN();
-  printf("STARTING RX task\n");
-  etimer_set(&et, CLOCK_SECOND * 100);
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
-  printf("RX report: %d, %d\n", rx_cnt, rx_err_cnt);
-  PROCESS_END();
-}
 
 
 PROCESS_THREAD(range_process, ev, data)
 {
   static struct etimer et;
-  // static struct etimer timeout;
-  // static int status;
-  uint8_t irq_status;
 
   PROCESS_BEGIN();
-  frame802154_t frame2 = default_header;
-  printf("TEST receiver 7\n");
+  
+  if(deployment_set_node_id_ieee_addr()){
+    printf("NODE addr set successfully: %d\n", node_id);
+  }else{
+    printf("Failed to set nodeID\n");
+  }
   dwt_setcallbacks(NULL, &rx_ok_cb, NULL, &rx_err_cb);
+
+
+  switch (node_id)
+  {
+  case 8:
+      config.rxCode = 10;
+    break;
+
+  case 10:
+      config.rxCode = 9;
+    break;
+    
+  case 12:
+      config.rxCode = 13;
+    break;
+  
+  case 14:
+      config.rxCode = 12;
+    break;
+
+  case 16:
+      config.rxCode = 11;
+    break;
+  
+  default:
+    break;
+  }
+
+  dwt_configure(&config);
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   while (1){
