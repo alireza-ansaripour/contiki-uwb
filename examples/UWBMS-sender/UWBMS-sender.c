@@ -98,7 +98,7 @@ dwt_txconfig_t txConf = {
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
   txpkt.seq++;
-#if TS_WAIT
+#ifdef TS_WAIT
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
 #else
