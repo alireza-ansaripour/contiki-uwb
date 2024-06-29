@@ -48,7 +48,8 @@ PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
 #define FRAME_SIZE          100
 #define PACKET_TS           1
-#define UUS_TO_DWT_TIME 65536
+#define UUS_TO_DWT_TIME     65536
+#define TS_WAIT             0
 /*---------------------------------------------------------------------------*/
 typedef struct {
   uint8_t packet_type;
@@ -97,16 +98,15 @@ dwt_txconfig_t txConf = {
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
   txpkt.seq++;
+#if TS_WAIT
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
-  // if (1){
-  //   dwt_forcetrxoff();
-  //   dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
-  //   dwt_writetxfctrl(FRAME_SIZE, 0, 0);
-  //   dwt_starttx(DWT_START_TX_IMMEDIATE);
-  // }else{
-  //   
-  // }
+#else
+  dwt_forcetrxoff();
+  dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
+  dwt_writetxfctrl(FRAME_SIZE, 0, 0);
+  dwt_starttx(DWT_START_TX_IMMEDIATE);
+#endif
 }
 
 void rx_err_cb(const dwt_cb_data_t *cb_data){
@@ -184,7 +184,12 @@ PROCESS_THREAD(range_process, ev, data)
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
   // dwt_starttx(DWT_START_TX_IMMEDIATE);
+#ifdef TS_WAIT
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
+#else
+  dwt_starttx(DWT_START_TX_IMMEDIATE);
+#endif
+  
 
   while (1){
     // dwt_forcetrxoff();

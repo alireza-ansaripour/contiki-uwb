@@ -135,7 +135,7 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_writetxfctrl(FRAME_SIZE, 0, 0);
 
   
-  etimer_set(&et, CLOCK_SECOND * 3);
+  etimer_set(&et, CLOCK_SECOND * 4);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
   while (1){
