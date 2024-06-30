@@ -49,7 +49,7 @@ AUTOSTART_PROCESSES(&range_process);
 #define FRAME_SIZE          100
 #define PACKET_TS           1
 #define UUS_TO_DWT_TIME     65536
-#define TS_WAIT             0
+// #define TS_WAIT             0
 /*---------------------------------------------------------------------------*/
 typedef struct {
   uint8_t packet_type;
@@ -155,12 +155,28 @@ PROCESS_THREAD(range_process, ev, data)
 
   switch (node_id)
   {
-  case 11:
-      config.txCode = 10;
+  case 56:
+      config.txCode = 11;
     break;
   
-  case 10:
-      config.txCode = 11;
+  case 57:
+      config.txCode = 10;
+    break;
+
+  case 61:
+      config.txCode = 12;
+    break;
+  
+  case 53:
+      config.txCode = 14;
+    break;
+
+  case 54:
+      config.txCode = 13;
+    break;
+    
+  case 55:
+      config.txCode = 15;
     break;
   
   default:

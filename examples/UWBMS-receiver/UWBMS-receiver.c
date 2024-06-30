@@ -111,14 +111,31 @@ PROCESS_THREAD(range_process, ev, data)
 
   switch (node_id)
   {
-  case 13:
+  case 63:
       config.rxCode = 10;
     break;
   
-  case 14:
+  case 64:
       config.rxCode = 11;
     break;
   
+  case 65:
+      config.rxCode = 12;
+    break;
+  
+  case 50:
+      config.rxCode = 13;
+    break;
+
+  case 51:
+      config.rxCode = 14;
+    break;
+
+  case 52:
+      config.rxCode = 15;
+    break;
+  
+
   default:
     break;
   }
