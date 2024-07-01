@@ -77,7 +77,7 @@ dwt_config_t config = {
     (SFD_TO) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
 };
 
-uint8_t payload[] = {'a', 'l', 0, 0, 0, 0};
+uint8_t payload[] = {0xad, 0, 0, 0, 0, 0};
 uint8_t rx_payload[20];
 DETECTION_STATUS detection_status = RX_WAK_P1;
 int WaC_wating = 0;

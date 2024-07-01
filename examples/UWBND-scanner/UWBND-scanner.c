@@ -63,8 +63,14 @@ typedef enum{
   RX = 3,
   DETECTED_WaC=4
 }DETECTION_STATUS;
+
 /*---------------------------------------------------------------------------*/
-#define STM32_UUID ((uint32_t *)0x1ffff7e8)
+
+#define WaC1_LEN_MS      105
+#define WaC2_LEN_MS      5
+#define LISTEN_LEN_MS    100
+
+/*---------------------------------------------------------------------------*/
 
 uint8_t payload[3];
 uint8_t msg[3] = {0xbe, 0, 0};
@@ -121,9 +127,7 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
 
 
 /*-------------------------------------------------------------------*/
-#define WaC1_LEN_MS 105
-#define WaC2_LEN_MS 30
-#define LISTEN_LEN_MS 30
+
 
 PROCESS_THREAD(range_process, ev, data)
 {
@@ -190,7 +194,7 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_forcetrxoff();
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     printf("Listening\n");
-    etimer_set(&et, 100);
+    etimer_set(&et, LISTEN_LEN_MS);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     
 
