@@ -61,23 +61,26 @@ typedef enum{
   CCA_2 = 1,
   WaC_TX = 2,
   RX = 3,
-  DETECTED_WaC=4
+  DETECTED_WaC = 4,
+  DETECTED_SIG = 5
 }DETECTION_STATUS;
 
 /*---------------------------------------------------------------------------*/
 
 #define WaC1_LEN_MS      105
-#define WaC2_LEN_MS      5
+#define WaC2_LEN_MS      10
 #define LISTEN_LEN_MS    100
+#define TS_MSG           1
 
 /*---------------------------------------------------------------------------*/
 
-uint8_t payload[3];
-uint8_t msg[3] = {0xbe, 0, 0};
+uint8_t payload[10];
+uint8_t msg[7] = {0xbe, 0, 0, 0, 0, 0, 0};
 uint8_t stop_trans = 0;
 static int index_cnt = 0;
 static struct Scan_report report;
 DETECTION_STATUS detection_status = CCA_1;
+uint32_t WaC_start_time, WaC_current_time;
 
 dwt_config_t config = {
     3, /* Channel number. */
@@ -102,6 +105,10 @@ dwt_txconfig_t txConf = {
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
   if (stop_trans == 0){
+    WaC_current_time = clock_time();
+    uint32_t *time_diff = (uint32_t *) &msg[1];
+    *time_diff = WaC_current_time - WaC_start_time;
+    dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
   }
@@ -111,11 +118,15 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   dwt_readrxdata(payload, cb_data->datalength, 0);
-  if(cb_data->datalength == 3 && payload[0] == 0xbe ){
+  if(payload[0] == 0xbe){
     printf("WaC detected\n");
-    detection_status = RX;
+    detection_status = DETECTED_WaC;
   }
-  report.ids[index_cnt++] = payload[2];
+  if (payload[0] == 0xad){
+
+    uint16_t *n_id = (uint16_t *) & payload[2];
+    report.ids[index_cnt++] = *n_id;
+  }
 }
 
 
@@ -151,18 +162,55 @@ PROCESS_THREAD(range_process, ev, data)
   index_cnt = 0;
 
   while (1){
-     index_cnt = 0;
+    // detection_status = CCA_1;
+    // config.prf = DWT_PRF_64M;
+    // config.txCode = 9;
+    // dwt_configure(&config);
+
+    // if(dwt_rxenable(DWT_START_RX_IMMEDIATE) != DWT_SUCCESS){
+    //   printf("ND REQ FAILED\n");
+    //   continue;
+    // }
+
+    // etimer_set(&et, 2); // TX WaC1
+    // PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
+    // if(detection_status != CCA_1){
+    //   continue;
+    // }
+
+    // detection_status = CCA_2;
+    // config.prf = DWT_PRF_16M;
+    // config.txCode = 5;
+    // dwt_configure(&config);
+
+    // if(dwt_rxenable(DWT_START_RX_IMMEDIATE) != DWT_SUCCESS){
+    //   printf("ND REQ FAILED\n");
+    //   continue;
+    // }
+
+    
+    // if(detection_status != CCA_2){
+    //   continue;
+    // }
+
+
+    
     printf("Start sending WaK\n");
     /* ------------------------ Sending WaC1 --------------------------------*/
     stop_trans = 0;
     dwt_forcetrxoff();
+    memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
+    dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
+    WaC_start_time = clock_time();
     etimer_set(&et, WaC1_LEN_MS); // TX WaC1
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     stop_trans = 1; 
     dwt_forcetrxoff();
     dwt_rxreset();
+    index_cnt = 0;
     /* ----------------------- Changing to WaC2 -------------------------------------*/
     printf("changing config\n");
     config.prf = DWT_PRF_16M;
@@ -179,17 +227,19 @@ PROCESS_THREAD(range_process, ev, data)
     config.prf = DWT_PRF_64M;
     config.txCode = 9;
     dwt_configure(&config);
-    // dwt_forcetrxoff(); // Finish Scanning and wait for 30s
-    // etimer_set(&et, 100);
-    // PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    // printf("sending message \n");
-    // dwt_writetxdata(sizeof(msg), msg, 0);
-    // dwt_writetxfctrl(sizeof(msg), 0, 0);
-    // if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
-    //   printf("We fucked up\n");
-    // }
-    // etimer_set(&et, 20);
-    // PROCESS_WAIT_UNTIL(etimer_expired(&et));
+#if(TS_MSG == 1)
+    dwt_forcetrxoff(); 
+    etimer_set(&et, 1);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    printf("sending TS message \n");
+    dwt_writetxdata(sizeof(msg), msg, 0);
+    dwt_writetxfctrl(sizeof(msg), 0, 0);
+    if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
+      printf("We fucked up\n");
+    }
+    etimer_set(&et, 3);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+#endif
     /*------------------------------------------------------------------------------*/
     dwt_forcetrxoff();
     dwt_rxenable(DWT_START_RX_IMMEDIATE);

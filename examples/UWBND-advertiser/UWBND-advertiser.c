@@ -47,10 +47,12 @@ AUTOSTART_PROCESSES(&range_process);
 typedef enum{
   RX_WAK_P1 = 0,
   RX_WAK_P2 = 1,
-  RX_WAK_P3 = 4,
-  WAITING = 5,
-  CCA = 2,
-  RDY_TO_TX = 3,
+  RX_WAK_P3 = 2,
+  WAITING_TS = 3,
+  WAITING = 4,
+  PKT_DETECTED=5,
+  CCA = 6,
+  RDY_TO_TX = 7,
 }DETECTION_STATUS;
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
@@ -58,11 +60,12 @@ typedef enum{
 #define SFD_TO                          1
 #define PAC                             DWT_PAC8
 #define SNIFF_INTERVAL                  100
-#define RAPID_SNIFF_INTERVAL            3
+#define RAPID_SNIFF_INTERVAL            8
 #define WAC_TO                          130
 #define P2_TO_THRESH                    500
 #define CLS_TO_THRESH                   500
-#define CCA_EN                          0
+#define CCA_EN                          1
+#define TS_MODE                         1
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
     3, /* Channel number. */
@@ -102,6 +105,11 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   case RX_WAK_P2:
     detection_status = CCA;
     break;
+  
+  case WAITING_TS:
+    printf("Received TS MSG\n");
+    detection_status = WAITING;
+    break; 
 
   default:
     break;
@@ -119,12 +127,16 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
     printf("Detected WaC1: %d\n", node_id);
     break;
   case RX_WAK_P2:
+#if (TS_MODE)
+    detection_status = RX_WAK_P3;
+#else
     detection_status = WAITING;
+#endif
     printf("Detected WaC2: %d\n", node_id);
     break;
   
   case CCA:
-    detection_status = CCA;
+    detection_status = PKT_DETECTED;
     break;
   default:
     break;
@@ -172,7 +184,7 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_forcetrxoff();
   dwt_setpreambledetecttimeout(PDTO);  
   payload[2] = node_id;
-  memcpy(&payload[2], (uint8_t *) &node_id, 2);
+  memcpy(&payload[2], (uint16_t *) &node_id, 2);
   detection_status = RX_WAK_P1;
   
 
@@ -235,15 +247,33 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_rxreset();
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
     }
+#if(TS_MODE == 1)
+    if (detection_status == RX_WAK_P3){
+      config.prf = DWT_PRF_64M;
+      config.rxCode = 9;
+      config.rxPAC = DWT_PAC32;
+      config.sfdTO = 8000;
+      dwt_configure(&config);
+      dwt_setpreambledetecttimeout(0);
+      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      detection_status = WAITING_TS;
+      printf("Waiting for TS MSG\n");
+    }
+    if (detection_status == WAITING){
+      etimer_set(&et, node_id % 100);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      detection_status = RDY_TO_TX;
+    }
+#else
     if (detection_status == WAITING){
       config.prf = DWT_PRF_64M;
       config.rxCode = 9;
       config.rxPAC = DWT_PAC32;
       config.sfdTO = 8000;
       dwt_configure(&config);
-      unsigned short r = random_rand() % 20;
-      dwt_setpreambledetecttimeout(200 + (r * 30));
-      etimer_set(&et, RAPID_SNIFF_INTERVAL + 3);
+      dwt_setpreambledetecttimeout(0);
+      
+      etimer_set(&et, RAPID_SNIFF_INTERVAL + 2);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
 #if (CCA_EN == 1)
       detection_status = CCA;
@@ -255,10 +285,17 @@ PROCESS_THREAD(range_process, ev, data)
     }
 
     if (detection_status == CCA){
+      unsigned short r = 3 +  (random_rand() % 17);
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 2);
+      etimer_set(&et, r);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      if (detection_status == PKT_DETECTED){
+        detection_status = CCA;
+      }else{
+        detection_status = RDY_TO_TX;
+      }
     }
+#endif
     if (detection_status == RDY_TO_TX){
       detection_status = RX_WAK_P1;
       config.rxPAC = PAC;
@@ -269,6 +306,7 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_forcetrxoff();
       dwt_writetxdata(sizeof(payload), payload, 0);
       dwt_writetxfctrl(sizeof(payload), 0, 0);
+      printf("TX: %d\n", node_id);
       if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
         printf("TX ERR\n");
 
