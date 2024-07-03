@@ -57,12 +57,12 @@ struct Scan_report{
 };
 
 typedef enum{
-  CCA_1 = 0,
-  CCA_2 = 1,
-  WaC_TX = 2,
-  RX = 3,
-  DETECTED_WaC = 4,
-  DETECTED_SIG = 5
+  CCA_1,
+  CCA_2,
+  WAK_1,
+  WAK_2,
+  TS,
+  LISTEN
 }DETECTION_STATUS;
 
 /*---------------------------------------------------------------------------*/
@@ -70,7 +70,7 @@ typedef enum{
 #define WaC1_LEN_MS      105
 #define WaC2_LEN_MS      10
 #define LISTEN_LEN_MS    100
-#define TS_MSG           1
+#define TS_MSG           0
 
 /*---------------------------------------------------------------------------*/
 
@@ -112,6 +112,9 @@ void tx_ok_cb(const dwt_cb_data_t *cb_data){
     dwt_writetxfctrl(sizeof(msg), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
   }
+  if(detection_status == TS){
+    printf("TX Done\n");
+  }
 }
 
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
@@ -120,7 +123,6 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_readrxdata(payload, cb_data->datalength, 0);
   if(payload[0] == 0xbe){
     printf("WaC detected\n");
-    detection_status = DETECTED_WaC;
   }
   if (payload[0] == 0xad){
 
@@ -203,6 +205,7 @@ PROCESS_THREAD(range_process, ev, data)
     memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
     dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
+    detection_status = WAK_1;
     dwt_starttx(DWT_START_TX_IMMEDIATE);
     WaC_start_time = clock_time();
     etimer_set(&et, WaC1_LEN_MS); // TX WaC1
@@ -219,25 +222,31 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
     stop_trans = 0;
+    detection_status = WAK_2;
     dwt_starttx(DWT_START_TX_IMMEDIATE);
     etimer_set(&et, WaC2_LEN_MS); // TX WaC2
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     stop_trans = 1; // Once done TX start RX
     /*------------------------------------------------------------------------------*/
+    dwt_forcetrxoff();
     config.prf = DWT_PRF_64M;
     config.txCode = 9;
     dwt_configure(&config);
 #if(TS_MSG == 1)
-    dwt_forcetrxoff(); 
     etimer_set(&et, 1);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    printf("sending TS message \n");
+    printf("sending TS message %d\n", stop_trans);
+    msg[0] = 0xAA;
     dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
+    stop_trans = 1;
+    etimer_set(&et, 3);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    detection_status = TS;
     if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
       printf("We fucked up\n");
     }
-    etimer_set(&et, 3);
+    etimer_set(&et, 10);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 #endif
     /*------------------------------------------------------------------------------*/

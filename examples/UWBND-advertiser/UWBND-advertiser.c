@@ -64,8 +64,8 @@ typedef enum{
 #define WAC_TO                          130
 #define P2_TO_THRESH                    500
 #define CLS_TO_THRESH                   500
-#define CCA_EN                          1
-#define TS_MODE                         1
+#define CCA_EN                          0
+#define TS_MODE                         0
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
     3, /* Channel number. */
@@ -97,7 +97,6 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_readrxdata(rx_payload, cb_data->datalength, 0);
   dwt_forcetrxoff();
   dwt_rxreset();
-  
   switch (detection_status){
   case RX_WAK_P1:
     detection_status = RX_WAK_P2;
@@ -107,8 +106,12 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
     break;
   
   case WAITING_TS:
-    printf("Received TS MSG\n");
-    detection_status = WAITING;
+    if(rx_payload[0] == 0xAA){
+      printf("Received TS MSG\n");
+      detection_status = WAITING;
+    }else{
+      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    }
     break; 
 
   default:
@@ -138,6 +141,11 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
   case CCA:
     detection_status = PKT_DETECTED;
     break;
+
+  case WAITING_TS:
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    break;
+    
   default:
     break;
   }
@@ -255,12 +263,15 @@ PROCESS_THREAD(range_process, ev, data)
       config.sfdTO = 8000;
       dwt_configure(&config);
       dwt_setpreambledetecttimeout(0);
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      dwt_forcetrxoff();
+      if(dwt_rxenable(DWT_START_RX_IMMEDIATE) != DWT_SUCCESS){
+        printf("NOT OK\n");
+      }
       detection_status = WAITING_TS;
       printf("Waiting for TS MSG\n");
     }
     if (detection_status == WAITING){
-      etimer_set(&et, node_id % 100);
+      etimer_set(&et, 2 * (node_id % 100) + 2);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       detection_status = RDY_TO_TX;
     }
