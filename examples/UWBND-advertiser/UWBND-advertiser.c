@@ -291,7 +291,6 @@ PROCESS_THREAD(range_process, ev, data)
       printf("Starting CCA\n");
 #else
       detection_status = RDY_TO_TX;
-      printf("TX\n");
 #endif
     }
 
