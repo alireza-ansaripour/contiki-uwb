@@ -49,7 +49,19 @@ AUTOSTART_PROCESSES(&range_process);
 #define FRAME_SIZE          100
 #define PACKET_TS           1
 #define UUS_TO_DWT_TIME     65536
-// #define TS_WAIT             0
+#define TS_WAIT             0
+
+# define TARGET_XTAL_OFFSET_VALUE_PPM_MIN    (-8.0f)
+# define TARGET_XTAL_OFFSET_VALUE_PPM_MAX    (-6.0f)
+
+/* The FS_XTALT_MAX_VAL defined the maximum value of the trimming value */
+#define FS_XTALT_MAX_VAL                    (FS_XTALT_MASK)
+
+/* The typical trimming range is ~48ppm over all steps, see chapter "5.14.2 Crystal Oscillator Trim" of DW1000 Datasheet */
+#define AVG_TRIM_PER_PPM                    ((FS_XTALT_MAX_VAL+1)/48.0f)
+
+
+
 /*---------------------------------------------------------------------------*/
 typedef struct {
   uint8_t packet_type;
@@ -69,10 +81,21 @@ typedef struct{
   uint32_t ts_seq;
 } data_payload;
 
+typedef struct{
+  uint8_t tx_PC;
+  int     ppm_diff;
+} sender_info_t;
+
 /*---------------------------------------------------------------------------*/
 
 packet_t rxpkt;
 packet_t txpkt;
+
+int uCurrentTrim_val;
+float xtalOffset_ppm;
+
+static float freqMultiplier = FREQ_OFFSET_MULTIPLIER_110KB;    /* Frequency Multiplier         : Depends on .dataRate in the communication configuration */
+static float hzMultiplier   = HERTZ_TO_PPM_MULTIPLIER_CHAN_2;  /* Hz to PPM transfer Multiplier: Depends on .chan in the communication configuration */
 
 
 dwt_config_t config =   {
@@ -109,6 +132,12 @@ void tx_ok_cb(const dwt_cb_data_t *cb_data){
 #endif
 }
 
+float abs(float i){
+  if (i < 0)
+    return -1 * i;
+  return i;
+}
+
 void rx_err_cb(const dwt_cb_data_t *cb_data){
   
   dwt_forcetrxoff();
@@ -121,6 +150,9 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   uint32_t rx_time = dwt_readrxtimestamphi32();
   dwt_forcetrxoff();
   dwt_readrxdata((uint8_t *) &rxpkt, cb_data->datalength, 0);
+  int32    tmp;
+  tmp = dwt_readcarrierintegrator();
+  xtalOffset_ppm = tmp * (freqMultiplier * hzMultiplier);
   uint32_t tx_time = rx_time + ((UUS_TO_DWT_TIME * 5000) >> 8);
   dwt_setdelayedtrxtime(tx_time);
   dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
@@ -128,7 +160,7 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   if (rxpkt.packet_type == PACKET_TS){
     dwt_writetxfctrl(FRAME_SIZE, 0, 0);
     if (dwt_starttx(DWT_START_TX_DELAYED) == DWT_SUCCESS){
-      printf("TS Frame: %d\n", rxpkt.seq);
+      // printf("TS Frame: %d\n", rxpkt.seq);
     }else{
       printf("TX failed \n");
     }
@@ -136,12 +168,20 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   }else{
     printf("Something else\n");
   }
+  printf("CLK offset: %d\n", (int) (xtalOffset_ppm * 10));
+  if ((xtalOffset_ppm) < TARGET_XTAL_OFFSET_VALUE_PPM_MIN || (xtalOffset_ppm) > TARGET_XTAL_OFFSET_VALUE_PPM_MAX){
+    uCurrentTrim_val -= ((TARGET_XTAL_OFFSET_VALUE_PPM_MAX + TARGET_XTAL_OFFSET_VALUE_PPM_MIN)/2 + xtalOffset_ppm) * AVG_TRIM_PER_PPM;
+    uCurrentTrim_val &= FS_XTALT_MASK;
+    dwt_setxtaltrim(uCurrentTrim_val);
+  }
+  
 }
 
 PROCESS_THREAD(range_process, ev, data)
 {
   static struct etimer et;
   uint8_t irq_status;
+  sender_info_t instance_info;
 
   PROCESS_BEGIN();
   
@@ -153,30 +193,18 @@ PROCESS_THREAD(range_process, ev, data)
     printf("Failed to set nodeID\n");
   }
 
+
+
   switch (node_id)
   {
-  case 56:
-      config.txCode = 11;
+  case 11:
+      instance_info.tx_PC = 11;
+      instance_info.ppm_diff = -5;
     break;
   
-  case 57:
-      config.txCode = 10;
-    break;
-
-  case 61:
-      config.txCode = 12;
-    break;
-  
-  case 53:
-      config.txCode = 14;
-    break;
-
-  case 54:
-      config.txCode = 13;
-    break;
-    
-  case 55:
-      config.txCode = 15;
+  case 13:
+      instance_info.tx_PC = 12;
+      instance_info.ppm_diff = -5;
     break;
   
   default:
@@ -184,6 +212,7 @@ PROCESS_THREAD(range_process, ev, data)
   }
 
 
+  config.txCode = instance_info.tx_PC;
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();

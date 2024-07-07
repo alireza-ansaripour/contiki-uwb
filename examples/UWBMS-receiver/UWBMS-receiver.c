@@ -141,6 +141,10 @@ PROCESS_THREAD(range_process, ev, data)
   }
 
   dwt_configure(&config);
+
+
+  uCurrentTrim_val = dwt_getxtaltrim();
+
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   while (1){
