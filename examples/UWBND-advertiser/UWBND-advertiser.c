@@ -59,10 +59,10 @@ typedef enum{
 #define PDTO                            3
 #define SFD_TO                          1
 #define PAC                             DWT_PAC8
-#define SNIFF_INTERVAL                  100
-#define RAPID_SNIFF_INTERVAL            8
+#define SNIFF_INTERVAL                  500
+#define RAPID_SNIFF_INTERVAL            50
 #define WAC_TO                          130
-#define P2_TO_THRESH                    500
+#define P2_TO_THRESH                    SNIFF_INTERVAL + 10
 #define CLS_TO_THRESH                   500
 #define CCA_EN                          0
 #define TS_MODE                         0
@@ -288,14 +288,14 @@ PROCESS_THREAD(range_process, ev, data)
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
 #if (CCA_EN == 1)
       detection_status = CCA;
-      printf("Starting CCA\n");
 #else
       detection_status = RDY_TO_TX;
 #endif
     }
 
     if (detection_status == CCA){
-      unsigned short r = 3 +  (random_rand() % 17);
+      printf("Starting CCA\n");
+      unsigned short r = 3 +  (random_rand() % 3);
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       etimer_set(&et, r);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));

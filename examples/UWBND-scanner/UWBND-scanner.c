@@ -67,8 +67,8 @@ typedef enum{
 
 /*---------------------------------------------------------------------------*/
 
-#define WaC1_LEN_MS      105
-#define WaC2_LEN_MS      10
+#define WaC1_LEN_MS      505
+#define WaC2_LEN_MS      52
 #define LISTEN_LEN_MS    100
 #define TS_MSG           0
 
@@ -126,7 +126,7 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   }
   if (payload[0] == 0xad){
 
-    uint16_t *n_id = (uint16_t *) & payload[2];
+    uint16_t *n_id = (uint16_t *) &payload[2];
     report.ids[index_cnt++] = *n_id;
   }
 }
@@ -163,41 +163,7 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_setpreambledetecttimeout(0);
   index_cnt = 0;
 
-  while (1){
-    // detection_status = CCA_1;
-    // config.prf = DWT_PRF_64M;
-    // config.txCode = 9;
-    // dwt_configure(&config);
-
-    // if(dwt_rxenable(DWT_START_RX_IMMEDIATE) != DWT_SUCCESS){
-    //   printf("ND REQ FAILED\n");
-    //   continue;
-    // }
-
-    // etimer_set(&et, 2); // TX WaC1
-    // PROCESS_WAIT_UNTIL(etimer_expired(&et));
-
-    // if(detection_status != CCA_1){
-    //   continue;
-    // }
-
-    // detection_status = CCA_2;
-    // config.prf = DWT_PRF_16M;
-    // config.txCode = 5;
-    // dwt_configure(&config);
-
-    // if(dwt_rxenable(DWT_START_RX_IMMEDIATE) != DWT_SUCCESS){
-    //   printf("ND REQ FAILED\n");
-    //   continue;
-    // }
-
-    
-    // if(detection_status != CCA_2){
-    //   continue;
-    // }
-
-
-    
+  while (1){    
     printf("Start sending WaK\n");
     /* ------------------------ Sending WaC1 --------------------------------*/
     stop_trans = 0;
