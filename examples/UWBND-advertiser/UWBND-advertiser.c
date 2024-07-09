@@ -136,8 +136,30 @@ PROCESS_THREAD(range_process, ev, data)
     printf("Failed to set nodeID\n");
   }
 
-
-  T_ADV = 100;
+  switch(node_id){
+    case 7:
+    case 8:
+      T_ADV = 20;
+      break;
+    case 9:
+    case 10:
+      T_ADV = 30;
+      break;
+    case 11:
+    case 12:
+      T_ADV = 200;
+      break;
+    
+    case 15:
+    case 16:
+      T_ADV = 50;
+      break;
+    
+    default:
+      T_ADV = 100;
+      break;
+  }
+  
   
 
   dwt_configure(&config);
@@ -145,7 +167,7 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_forcetrxoff(); 
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
   dwt_writetxdata(sizeof(payload), (uint8_t *) payload, 0);
-  
+  printf("Start advertiser wit T_ADV: %d\n", T_ADV);
   while (1){
     etimer_set(&et, T_ADV);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));

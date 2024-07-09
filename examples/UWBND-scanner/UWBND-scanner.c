@@ -81,6 +81,7 @@ static int index_cnt = 0;
 static struct Scan_report report;
 DETECTION_STATUS detection_status = CCA_1;
 uint32_t WaC_start_time, WaC_current_time;
+int T_SCAN, T_INT;
 
 dwt_config_t config = {
     3, /* Channel number. */
@@ -104,30 +105,23 @@ dwt_txconfig_t txConf = {
 /*----------------------------------------------------------------------------------*/
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
-  if (stop_trans == 0){
-    WaC_current_time = clock_time();
-    uint32_t *time_diff = (uint32_t *) &msg[1];
-    *time_diff = WaC_current_time - WaC_start_time;
-    dwt_writetxdata(sizeof(msg), msg, 0);
-    dwt_writetxfctrl(sizeof(msg), 0, 0);
-    dwt_starttx(DWT_START_TX_IMMEDIATE);
-  }
-  if(detection_status == TS){
-    printf("TX Done\n");
-  }
+  
 }
 
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   dwt_readrxdata(payload, cb_data->datalength, 0);
-  if(payload[0] == 0xbe){
-    printf("WaC detected\n");
-  }
   if (payload[0] == 0xad){
 
     uint16_t *n_id = (uint16_t *) &payload[2];
-    report.ids[index_cnt++] = *n_id;
+    bool add = true;
+    for (int i = 0; i < index_cnt; i++){
+      if (report.ids[i] == *n_id)
+        add = false;
+    }
+    if (add)
+      report.ids[index_cnt++] = *n_id;
   }
 }
 
@@ -157,84 +151,25 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
 
-  dwt_writetxdata(sizeof(msg), msg, 0);
-  dwt_writetxfctrl(sizeof(msg), 0, 0);
-  printf("Starting scanner with SCAN time %d\n", LISTEN_LEN_MS);
-  dwt_setpreambledetecttimeout(0);
-  index_cnt = 0;
+  T_SCAN = 105;
+  T_INT  = 1000;
 
-  while (1){    
-    printf("Start sending WaK\n");
-    /* ------------------------ Sending WaC1 --------------------------------*/
-    stop_trans = 0;
-    dwt_forcetrxoff();
-    memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
-    dwt_writetxdata(sizeof(msg), msg, 0);
-    dwt_writetxfctrl(sizeof(msg), 0, 0);
-    detection_status = WAK_1;
-    dwt_starttx(DWT_START_TX_IMMEDIATE);
-    WaC_start_time = clock_time();
-    etimer_set(&et, WaC1_LEN_MS); // TX WaC1
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    stop_trans = 1; 
-    dwt_forcetrxoff();
-    dwt_rxreset();
+  printf("Starting Scanner with: T_ADV = %d, & T_INT = %d\n", T_SCAN, T_INT);
+
+  while (1){
     index_cnt = 0;
-    /* ----------------------- Changing to WaC2 -------------------------------------*/
-    printf("changing config\n");
-    config.prf = DWT_PRF_16M;
-    config.txCode = 5;
-    dwt_configure(&config);
-    dwt_writetxdata(sizeof(msg), msg, 0);
-    dwt_writetxfctrl(sizeof(msg), 0, 0);
-    stop_trans = 0;
-    detection_status = WAK_2;
-    dwt_starttx(DWT_START_TX_IMMEDIATE);
-    etimer_set(&et, WaC2_LEN_MS); // TX WaC2
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    stop_trans = 1; // Once done TX start RX
-    /*------------------------------------------------------------------------------*/
-    dwt_forcetrxoff();
-    config.prf = DWT_PRF_64M;
-    config.txCode = 9;
-    dwt_configure(&config);
-#if(TS_MSG == 1)
-    etimer_set(&et, 1);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    printf("sending TS message %d\n", stop_trans);
-    msg[0] = 0xAA;
-    dwt_writetxdata(sizeof(msg), msg, 0);
-    dwt_writetxfctrl(sizeof(msg), 0, 0);
-    stop_trans = 1;
-    etimer_set(&et, 3);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    detection_status = TS;
-    if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
-      printf("We fucked up\n");
-    }
-    etimer_set(&et, 10);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-#endif
-    /*------------------------------------------------------------------------------*/
-    dwt_forcetrxoff();
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    printf("Listening\n");
-    etimer_set(&et, LISTEN_LEN_MS);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    
-
-    printf("Report: %d -> ", index_cnt);
-    for (int i = 0; i < index_cnt; i++){
+    etimer_set(&et, T_SCAN);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));    
+    dwt_forcetrxoff();
+    printf("b'Report: %d -> ", index_cnt);
+    for (int i =0 ; i< index_cnt; i++){
       printf("%d, ", report.ids[i]);
     }
     printf("\n");
-    unsigned short r = random_rand();
-    etimer_set(&et, CLOCK_SECOND * (1 + r % 4));
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    etimer_set(&et, T_INT - T_SCAN);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));    
   }
-  
-
-
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
