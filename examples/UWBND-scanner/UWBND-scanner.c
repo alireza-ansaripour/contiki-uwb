@@ -82,6 +82,7 @@ static struct Scan_report report;
 DETECTION_STATUS detection_status = CCA_1;
 uint32_t WaC_start_time, WaC_current_time;
 int T_SCAN, T_INT;
+unsigned short wait1;
 
 dwt_config_t config = {
     3, /* Channel number. */
@@ -158,6 +159,9 @@ PROCESS_THREAD(range_process, ev, data)
 
   while (1){
     index_cnt = 0;
+    wait1 = random_rand() % (T_INT - T_SCAN);
+    etimer_set(&et, wait1);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));    
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     etimer_set(&et, T_SCAN);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));    
@@ -167,7 +171,7 @@ PROCESS_THREAD(range_process, ev, data)
       printf("%d, ", report.ids[i]);
     }
     printf("\n");
-    etimer_set(&et, T_INT - T_SCAN);
+    etimer_set(&et, T_INT - T_SCAN - wait1);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));    
   }
   PROCESS_END();
