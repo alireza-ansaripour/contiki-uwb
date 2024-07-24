@@ -68,9 +68,11 @@ typedef enum{
 /*---------------------------------------------------------------------------*/
 
 #define WaC1_LEN_MS      505
-#define WaC2_LEN_MS      52
-#define LISTEN_LEN_MS    100
+#define WaC2_LEN_MS      12   
+#define LISTEN_LEN_MS    300
 #define TS_MSG           0
+
+#define WAC2_PC          1
 
 /*---------------------------------------------------------------------------*/
 
@@ -78,12 +80,13 @@ uint8_t payload[10];
 uint8_t msg[7] = {0xbe, 0, 0, 0, 0, 0, 0};
 uint8_t stop_trans = 0;
 static int index_cnt = 0;
+static int error_cnt = 0;
 static struct Scan_report report;
 DETECTION_STATUS detection_status = CCA_1;
 uint32_t WaC_start_time, WaC_current_time;
 
 dwt_config_t config = {
-    3, /* Channel number. */
+    1, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_4096, /* Preamble length. Used in TX only. */
     DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
@@ -135,6 +138,7 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
 void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
+  error_cnt++;
   // printf("TX OK Sender\n");
 }
 
@@ -159,7 +163,7 @@ PROCESS_THREAD(range_process, ev, data)
 
   dwt_writetxdata(sizeof(msg), msg, 0);
   dwt_writetxfctrl(sizeof(msg), 0, 0);
-  printf("Starting scanner with SCAN time %d\n", LISTEN_LEN_MS);
+  printf("Starting scanner with WaC2: %d\n", WaC2_LEN_MS);
   dwt_setpreambledetecttimeout(0);
   index_cnt = 0;
 
@@ -183,7 +187,7 @@ PROCESS_THREAD(range_process, ev, data)
     /* ----------------------- Changing to WaC2 -------------------------------------*/
     printf("changing config\n");
     config.prf = DWT_PRF_16M;
-    config.txCode = 5;
+    config.txCode = WAC2_PC;
     dwt_configure(&config);
     dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
@@ -216,6 +220,7 @@ PROCESS_THREAD(range_process, ev, data)
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 #endif
     /*------------------------------------------------------------------------------*/
+    error_cnt = 0;
     dwt_forcetrxoff();
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     printf("Listening\n");
@@ -228,6 +233,7 @@ PROCESS_THREAD(range_process, ev, data)
       printf("%d, ", report.ids[i]);
     }
     printf("\n");
+    printf("Error cnt: %d\n", error_cnt);
     unsigned short r = random_rand();
     etimer_set(&et, CLOCK_SECOND * (1 + r % 4));
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
