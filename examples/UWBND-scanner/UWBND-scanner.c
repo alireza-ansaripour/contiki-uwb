@@ -57,24 +57,36 @@ struct Scan_report{
 };
 
 typedef enum{
-  CCA_1 = 0,
-  CCA_2 = 1,
-  WaC_TX = 2,
-  RX = 3,
-  DETECTED_WaC=4
+  CCA_1,
+  CCA_2,
+  WAK_1,
+  WAK_2,
+  TS,
+  LISTEN
 }DETECTION_STATUS;
-/*---------------------------------------------------------------------------*/
-#define STM32_UUID ((uint32_t *)0x1ffff7e8)
 
-uint8_t payload[3];
-uint8_t msg[3] = {0xbe, 0, 0};
+/*---------------------------------------------------------------------------*/
+
+#define WaC1_LEN_MS      505
+#define WaC2_LEN_MS      202   
+#define LISTEN_LEN_MS    300
+#define TS_MSG           0
+
+#define WAC2_PC          1
+
+/*---------------------------------------------------------------------------*/
+
+uint8_t payload[10];
+uint8_t msg[7] = {0xbe, 0, 0, 0, 0, 0, 0};
 uint8_t stop_trans = 0;
 static int index_cnt = 0;
+static int error_cnt = 0;
 static struct Scan_report report;
 DETECTION_STATUS detection_status = CCA_1;
+uint32_t WaC_start_time, WaC_current_time;
 
 dwt_config_t config = {
-    3, /* Channel number. */
+    1, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_4096, /* Preamble length. Used in TX only. */
     DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
@@ -96,8 +108,15 @@ dwt_txconfig_t txConf = {
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
   if (stop_trans == 0){
+    WaC_current_time = clock_time();
+    uint32_t *time_diff = (uint32_t *) &msg[1];
+    *time_diff = WaC_current_time - WaC_start_time;
+    dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
+  }
+  if(detection_status == TS){
+    printf("TX Done\n");
   }
 }
 
@@ -105,25 +124,27 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   dwt_readrxdata(payload, cb_data->datalength, 0);
-  if(cb_data->datalength == 3 && payload[0] == 0xbe ){
+  if(payload[0] == 0xbe){
     printf("WaC detected\n");
-    detection_status = RX;
   }
-  report.ids[index_cnt++] = payload[2];
+  if (payload[0] == 0xad){
+
+    uint16_t *n_id = (uint16_t *) &payload[2];
+    report.ids[index_cnt++] = *n_id;
+  }
 }
 
 
 void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
+  error_cnt++;
   // printf("TX OK Sender\n");
 }
 
 
 /*-------------------------------------------------------------------*/
-#define WaC1_LEN_MS 105
-#define WaC2_LEN_MS 30
-#define LISTEN_LEN_MS 30
+
 
 PROCESS_THREAD(range_process, ev, data)
 {
@@ -142,11 +163,26 @@ PROCESS_THREAD(range_process, ev, data)
 
   dwt_writetxdata(sizeof(msg), msg, 0);
   dwt_writetxfctrl(sizeof(msg), 0, 0);
-  printf("Starting scanner with SCAN time %d\n", LISTEN_LEN_MS);
+  printf("Starting scanner with WaC2: %d\n", WaC2_LEN_MS);
   dwt_setpreambledetecttimeout(0);
   index_cnt = 0;
 
-  while (1){
+  while (1){    
+    printf("Start sending WaK\n");
+    /* ------------------------ Sending WaC1 --------------------------------*/
+    stop_trans = 0;
+    dwt_forcetrxoff();
+    memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
+    dwt_writetxdata(sizeof(msg), msg, 0);
+    dwt_writetxfctrl(sizeof(msg), 0, 0);
+    detection_status = WAK_1;
+    dwt_starttx(DWT_START_TX_IMMEDIATE);
+    WaC_start_time = clock_time();
+    etimer_set(&et, WaC1_LEN_MS); // TX WaC1
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    stop_trans = 1; 
+    dwt_forcetrxoff();
+    dwt_rxreset();
     index_cnt = 0;
     // detection_status = CCA_1;
     // if (detection_status == CCA_1){
@@ -224,9 +260,6 @@ PROCESS_THREAD(range_process, ev, data)
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       /* code */
     // }
-  }
-  
-
 
   PROCESS_END();
 }

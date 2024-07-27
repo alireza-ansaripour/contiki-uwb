@@ -38,6 +38,7 @@
 #include "dw1000.h"
 #include "dw1000-ranging.h"
 #include "sys/node-id.h"
+#include "nrf.h"
 #include <sys/node-id.h>
 #include "core/net/linkaddr.h"
 /*---------------------------------------------------------------------------*/
@@ -60,7 +61,7 @@ typedef enum{
 #define SFD_TO                          1
 #define PAC                             DWT_PAC8
 #define SNIFF_INTERVAL                  500
-#define RAPID_SNIFF_INTERVAL            10
+#define RAPID_SNIFF_INTERVAL            200
 #define P2_TO_THRESH                    SNIFF_INTERVAL + 10
 #define CLS_TO_THRESH                   500
 #define CCA_EN                          0
@@ -97,6 +98,7 @@ int CLS_timeout = 0;
 bool config_change = false;
 int cca_timer = 0;
 int back_off = 0;
+uint16_t node_id;
 /*---------------------------------------------------------------------------*/
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
@@ -139,7 +141,8 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_rxreset();
   switch (detection_status){
   case RX_WAK_P1:
-    detection_status = RX_WAK_P1;
+    detection_status = RX_WAK_P2;
+    printf("Detected WaC1: %d\n", node_id);
     break;
   case RX_WAK_P2:
 #if (TS_MODE)
@@ -191,12 +194,65 @@ PROCESS_THREAD(range_process, ev, data)
   PROCESS_BEGIN();
   static struct etimer et;
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
-  if(deployment_set_node_id_ieee_addr()){
-    printf("NODE addr set successfully: %d, CCA_EN: %d\n", node_id, CCA_EN);
-  }else{
-    printf("Failed to set nodeID\n");
-  }
-  // deployment_print_id_info();
+  node_id = 1;
+  uint32_t dev_id = NRF_FICR->DEVICEADDR[0];
+  switch (dev_id){
+    case 0x5270f477:
+      node_id = 166;
+      break;
+
+    case 0x752a0381:
+      node_id = 161;
+      break;
+    
+    case 0x81984018:
+      node_id = 165;
+      break;
+    
+    case 0x5c50e9de:
+      node_id = 168;
+      break;
+    
+    case 0xaaf5c764:
+      node_id = 162;
+      break;
+    
+    case 0x4ed6a168:
+      node_id = 170;
+      break;
+
+    case 0x25571c0e:
+      node_id = 167;
+      break;
+
+    case 0x723ee061:
+      node_id = 163;
+      break;
+    
+    case 0xda82e887:
+      node_id = 169;
+      break;
+
+    case 0x7605ae4e:
+      node_id = 173;
+      break;
+    
+
+    case 0x2510ed2a:
+      node_id = 172;
+      break;
+    
+    case 0x685c382a:
+      node_id = 164;
+      break;
+
+    case 0xabe717f8:
+      node_id = 171;
+      break;
+  };
+
+  printf("DEV_ID: 0x%x, NODE ID: %d\n", dev_id, node_id);
+
   etimer_set(&et, CLOCK_SECOND * 1);
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
@@ -206,6 +262,8 @@ PROCESS_THREAD(range_process, ev, data)
   payload[2] = node_id;
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
   detection_status = RX_WAK_P1;
+  
+
 
   while (1){
     etimer_set(&et, 1);
