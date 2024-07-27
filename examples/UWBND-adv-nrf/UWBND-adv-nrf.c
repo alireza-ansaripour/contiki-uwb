@@ -61,10 +61,10 @@ typedef enum{
 #define SFD_TO                          1
 #define PAC                             DWT_PAC8
 #define SNIFF_INTERVAL                  500
-#define RAPID_SNIFF_INTERVAL            10
+#define RAPID_SNIFF_INTERVAL            200
 #define P2_TO_THRESH                    SNIFF_INTERVAL + 10
 #define CLS_TO_THRESH                   500
-#define CCA_EN                          1
+#define CCA_EN                          0
 #define TS_MODE                         0
 
 #define WAC2_PC                         1

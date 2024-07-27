@@ -68,7 +68,7 @@ typedef enum{
 /*---------------------------------------------------------------------------*/
 
 #define WaC1_LEN_MS      505
-#define WaC2_LEN_MS      12   
+#define WaC2_LEN_MS      202   
 #define LISTEN_LEN_MS    300
 #define TS_MSG           0
 
