@@ -259,7 +259,7 @@ PROCESS_THREAD(range_process, ev, data)
       etimer_set(&et, CLOCK_SECOND * (1 + r % 4));
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       /* code */
-    // }
+    }
 
   PROCESS_END();
 }

@@ -99,6 +99,7 @@ bool config_change = false;
 int cca_timer = 0;
 int back_off = 0;
 uint16_t node_id;
+int false_WU_cnt = 0;
 /*---------------------------------------------------------------------------*/
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
@@ -142,7 +143,8 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
   switch (detection_status){
   case RX_WAK_P1:
     detection_status = RX_WAK_P2;
-    printf("Detected WaC1: %d\n", node_id);
+    printf("Detected WaC1: %d, %d\n", node_id, false_WU_cnt);
+    false_WU_cnt = 0;
     break;
   case RX_WAK_P2:
 #if (TS_MODE)
@@ -269,6 +271,7 @@ PROCESS_THREAD(range_process, ev, data)
     etimer_set(&et, 1);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     if (detection_status == RX_WAK_P1){
+      false_WU_cnt++;
       etimer_set(&et, SNIFF_INTERVAL - 1);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       config_change = false;
