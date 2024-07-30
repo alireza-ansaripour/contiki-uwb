@@ -61,7 +61,7 @@ typedef enum{
 #define SFD_TO                          1
 #define PAC                             DWT_PAC8
 #define SNIFF_INTERVAL                  500
-#define RAPID_SNIFF_INTERVAL            200
+#define RAPID_SNIFF_INTERVAL            50
 #define P2_TO_THRESH                    SNIFF_INTERVAL + 10
 #define CLS_TO_THRESH                   500
 #define CCA_EN                          0
@@ -98,6 +98,10 @@ int CLS_timeout = 0;
 bool config_change = false;
 int cca_timer = 0;
 int back_off = 0;
+int tot_num_sniffs = 0;
+int rapid_sniffs = 0;
+int num_tx = 0;
+int report_cnter = 0;
 uint16_t node_id;
 /*---------------------------------------------------------------------------*/
 
@@ -263,7 +267,7 @@ PROCESS_THREAD(range_process, ev, data)
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
   detection_status = RX_WAK_P1;
   
-
+  report_cnter = 5;
 
   while (1){
     etimer_set(&et, 1);
@@ -291,6 +295,8 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_forcetrxoff();
       dwt_rxreset();
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      tot_num_sniffs++;
+      rapid_sniffs = 0;
       P2_timeout = 0;
       CLS_timeout = 0;
       back_off = 0;
@@ -325,6 +331,8 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_forcetrxoff();
       dwt_rxreset();
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      tot_num_sniffs++;
+      rapid_sniffs++;
     }
 #if(TS_MODE == 1)
     if (detection_status == RX_WAK_P3){
@@ -390,20 +398,17 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_forcetrxoff();
       dwt_writetxdata(sizeof(payload), payload, 0);
       dwt_writetxfctrl(sizeof(payload), 0, 0);
-      printf("TX: %d, %d\n", node_id, back_off);
+      printf("TX: %d, %d, %d\n", node_id, rapid_sniffs, tot_num_sniffs);
       if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
         printf("TX ERR\n");
-
-        printf("oh no\n");
       }
       etimer_set(&et, (random_rand() % 30));
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
       dwt_setpreambledetecttimeout(PDTO);
     }
-
   }
-  
+
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
