@@ -203,8 +203,7 @@ PROCESS_THREAD(range_process, ev, data)
   instance_info.packet_len = FRAME_SIZE;
   instance_info.tx_IPI_ms = 0;
 
-  switch (node_id)
-  {
+  switch (node_id){
   case 125:
       instance_info.tx_PC = 11;
       instance_info.packet_len = 50;
@@ -212,7 +211,7 @@ PROCESS_THREAD(range_process, ev, data)
   
   case 127:
       instance_info.tx_PC = 12;
-      // config.txPreambLength = DWT_PLEN_1024;
+      config.txPreambLength = DWT_PLEN_1024;
       instance_info.packet_len = 30;
     break;
   
