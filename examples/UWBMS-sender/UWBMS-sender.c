@@ -46,10 +46,10 @@
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
-#define FRAME_SIZE          100
+#define FRAME_SIZE          1022
 #define PACKET_TS           1
 #define UUS_TO_DWT_TIME     65536
-#define TS_WAIT             0
+// #define TS_WAIT          
 
 # define TARGET_XTAL_OFFSET_VALUE_PPM_MIN    (-8.0f)
 # define TARGET_XTAL_OFFSET_VALUE_PPM_MAX    (-6.0f)
@@ -83,13 +83,15 @@ typedef struct{
 
 typedef struct{
   uint8_t tx_PC;
-  int     ppm_diff;
+  uint16_t packet_len;
+  uint16_t tx_IPI_ms;
 } sender_info_t;
 
 /*---------------------------------------------------------------------------*/
 
 packet_t rxpkt;
 packet_t txpkt;
+sender_info_t instance_info;
 
 int uCurrentTrim_val;
 float xtalOffset_ppm;
@@ -101,13 +103,13 @@ static float hzMultiplier   = HERTZ_TO_PPM_MULTIPLIER_CHAN_2;  /* Hz to PPM tran
 dwt_config_t config =   {
     5, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
-    DWT_PLEN_256, /* Preamble length. Used in TX only. */
+    DWT_PLEN_64, /* Preamble length. Used in TX only. */
     DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
-    0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
+    1, /* 0 to use standard SFD, 1 to use non-standard SFD. */
     DWT_BR_6M8, /* Data rate. */
-    DWT_PHRMODE_STD, /* PHY header mode. */
+    DWT_PHRMODE_EXT, /* PHY header mode. */
     (8000 + 1 + 64 - 64) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
 };
 
@@ -115,6 +117,7 @@ dwt_txconfig_t txConf = {
     0xC9, //PGDelay
     0x18181818 //30 dB
 };
+
 
 /*---------------------------------------------------------------------------*/
 
@@ -127,7 +130,10 @@ void tx_ok_cb(const dwt_cb_data_t *cb_data){
 #else
   dwt_forcetrxoff();
   dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
-  dwt_writetxfctrl(FRAME_SIZE, 0, 0);
+  dwt_writetxfctrl(instance_info.packet_len, 0, 0);
+  if (instance_info.tx_IPI_ms != 0){
+
+  }
   dwt_starttx(DWT_START_TX_IMMEDIATE);
 #endif
 }
@@ -181,7 +187,7 @@ PROCESS_THREAD(range_process, ev, data)
 {
   static struct etimer et;
   uint8_t irq_status;
-  sender_info_t instance_info;
+  
 
   PROCESS_BEGIN();
   
@@ -194,24 +200,40 @@ PROCESS_THREAD(range_process, ev, data)
   }
 
 
+  instance_info.packet_len = FRAME_SIZE;
+  instance_info.tx_IPI_ms = 0;
 
   switch (node_id)
   {
-  case 11:
+  case 125:
       instance_info.tx_PC = 11;
-      instance_info.ppm_diff = -5;
+      instance_info.packet_len = 50;
     break;
   
-  case 13:
+  case 127:
       instance_info.tx_PC = 12;
-      instance_info.ppm_diff = -5;
+      // config.txPreambLength = DWT_PLEN_1024;
+      instance_info.packet_len = 30;
+    break;
+  
+  case 132:
+      instance_info.tx_PC = 9;
+      // config.txPreambLength = DWT_PLEN_1024;
+      instance_info.packet_len = 41;
+    break;
+
+  case 133:
+      instance_info.tx_PC = 10;
+      // config.txPreambLength = DWT_PLEN_1024;
+      instance_info.packet_len = 35;
     break;
   
   default:
     break;
   }
-
-
+  
+  instance_info.packet_len = 50;
+  
   config.txCode = instance_info.tx_PC;
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
@@ -221,19 +243,20 @@ PROCESS_THREAD(range_process, ev, data)
   txpkt.dst = 0xffffffff;
   txpkt.seq = 0;
 
-  dwt_writetxdata(FRAME_SIZE, (uint8_t *) &txpkt, 0);
-  dwt_writetxfctrl(FRAME_SIZE, 0, 0);
 
   
   etimer_set(&et, CLOCK_SECOND * 3);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  dwt_writetxdata(instance_info.packet_len, (uint8_t *) &txpkt, 0);
+  dwt_writetxfctrl(instance_info.packet_len, 0, 0);
 
-  // dwt_starttx(DWT_START_TX_IMMEDIATE);
 #ifdef TS_WAIT
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
 #else
+  
   dwt_starttx(DWT_START_TX_IMMEDIATE);
 #endif
+  
   
 
   while (1){
