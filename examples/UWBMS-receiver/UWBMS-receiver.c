@@ -158,19 +158,19 @@ PROCESS_THREAD(range_process, ev, data)
   rx_info.ts_rxCode = config.rxCode;
 
   switch (node_id){    
-    case 169:
+    case 50:
         rx_info.rxCode = 10;
         rx_info.rx_wait_us = 1200;
       break;
-    case 164:
+    case 51:
         rx_info.rxCode = 11;
         rx_info.rx_wait_us = 1800;
       break;
-    case 168:
+    case 52:
         rx_info.rxCode = 12;
         rx_info.rx_wait_us = 1500;
       break;
-    case 161:
+    case 53:
         rx_info.rxCode = 13;
         rx_info.rx_wait_us = 2100;
       break;

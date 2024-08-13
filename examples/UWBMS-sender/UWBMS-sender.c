@@ -50,7 +50,7 @@ AUTOSTART_PROCESSES(&range_process);
 #define PACKET_TS           1
 #define PACKET_DA           2
 #define UUS_TO_DWT_TIME     65536
-#define TS_WAIT          
+// #define TS_WAIT          
 
 # define TARGET_XTAL_OFFSET_VALUE_PPM_MIN    (-8.0f)
 # define TARGET_XTAL_OFFSET_VALUE_PPM_MAX    (-6.0f)
@@ -143,7 +143,7 @@ void tx_ok_cb(const dwt_cb_data_t *cb_data){
   }else{
     dwt_starttx(DWT_START_TX_IMMEDIATE);
   }
-  
+  printf("TX on\n");
 #endif
 }
 
@@ -210,21 +210,21 @@ PROCESS_THREAD(range_process, ev, data)
   printf("NODE ID is: %d\n", node_id);
   config.txPreambLength = DWT_PLEN_128;
   switch (node_id){
-  case 163:
+  case 65:
       instance_info.tx_PC = 10;
       instance_info.tx_wait_us = 1300;
       // config.txPreambLength = DWT_PLEN_1024;
     break;
-  case 170:
+  case 64:
       instance_info.tx_PC = 11;
       instance_info.tx_wait_us = 2000;
     break;
-  case 162:
+  case 63:
       instance_info.tx_PC = 12;
       instance_info.tx_wait_us = 1700;
       // config.txPreambLength = DWT_PLEN_256;
     break;
-  case 167:
+  case 57:
       instance_info.tx_PC = 13;
       instance_info.tx_wait_us = 2300;
       // config.txPreambLength = DWT_PLEN_256;
