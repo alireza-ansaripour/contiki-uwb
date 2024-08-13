@@ -43,6 +43,7 @@
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
+#define UUS_TO_DWT_TIME 65536
 /*---------------------------------------------------------------------------*/
 typedef struct {
   uint8_t packet_type;
@@ -62,6 +63,13 @@ typedef struct{
   uint32_t ts_seq;
 } data_payload;
 
+typedef struct{
+  uint8_t rxCode;
+  uint8_t ts_rxCode;
+  uint16_t rx_wait_us;
+} rx_info_t;
+
+
 /*---------------------------------------------------------------------------*/
 packet_t rxpkt;
 
@@ -69,7 +77,7 @@ dwt_config_t config =   {
     5, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_1024, /* Preamble length. Used in TX only. */
-    DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
+    DWT_PAC16, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
     1, /* 0 to use standard SFD, 1 to use non-standard SFD. */
@@ -83,20 +91,114 @@ uint32_t last_seq = 0;
 uint32_t start_seq = 0;
 
 int packets_received = 0;
+uint16_t node_id = 0;
+rx_info_t rx_info;
 /*---------------------------------------------------------------------------*/
+
+
+uint16_t get_node_addr(){
+  uint32_t dev_id = NRF_FICR->DEVICEADDR[0];
+  uint16_t node_id = 160;
+  switch (dev_id){
+    case 0x5270f477:
+      node_id = 166;
+      break;
+
+    case 0x752a0381:
+      node_id = 161;
+      break;
+    
+    case 0x81984018:
+      node_id = 165;
+      break;
+    
+    case 0x5c50e9de:
+      node_id = 168;
+      break;
+    
+    case 0xaaf5c764:
+      node_id = 162;
+      break;
+    
+    case 0x4ed6a168:
+      node_id = 170;
+      break;
+
+    case 0x25571c0e:
+      node_id = 167;
+      break;
+
+    case 0x723ee061:
+      node_id = 163;
+      break;
+    
+    case 0xda82e887:
+      node_id = 169;
+      break;
+
+    case 0x7605ae4e:
+      node_id = 173;
+      break;
+    
+
+    case 0x2510ed2a:
+      node_id = 172;
+      break;
+    
+    case 0x685c382a:
+      node_id = 164;
+      break;
+
+    case 0xabe717f8:
+      node_id = 171;
+      break;
+  };
+
+  return node_id;
+  
+}
+
 
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_readrxdata((uint8_t *) &rxpkt, 20, 0);
+  uint32_t rx_timestamp;
+  uint32_t tx_time;
+  rx_timestamp = dwt_readrxtimestamphi32();
   dwt_forcetrxoff();
-  dwt_rxenable(DWT_START_RX_IMMEDIATE);
+  
   // if (rxpkt.seq - last_seq != 1)
   //   printf("Diff: %d, %d\n", rxpkt.seq, rxpkt.seq - last_seq);
-  last_seq = rxpkt.seq;
-  packets_received++;
+  if (rxpkt.packet_type == 1){
+    config.rxCode = rx_info.rxCode;
+    dwt_configure(&config);
+    dwt_setpreambledetecttimeout(500);
+    tx_time = rx_timestamp + ((UUS_TO_DWT_TIME * rx_info.rx_wait_us) >> 8);
+    dwt_setdelayedtrxtime(tx_time);
+    dwt_rxenable(DWT_START_RX_DELAYED);
+  }
+  
+  if (rxpkt.packet_type == 2){
+    last_seq = rxpkt.seq;
+    packets_received++;
+    config.rxCode = rx_info.ts_rxCode;
+    dwt_configure(&config);
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    dwt_setpreambledetecttimeout(0);
+  }
+  
+}
+
+void rx_to_cb(const dwt_cb_data_t *cb_data){
+  config.rxCode = rx_info.ts_rxCode;
+  dwt_configure(&config);
+  dwt_setpreambledetecttimeout(0);
+  dwt_rxenable(DWT_START_RX_IMMEDIATE);
 }
 
 void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
+  config.rxCode = rx_info.ts_rxCode;
+  dwt_configure(&config);
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   // printf("RX ERR CB receiver: %d\n", cb_data->status);
 }
@@ -109,31 +211,37 @@ PROCESS_THREAD(range_process, ev, data)
 
   PROCESS_BEGIN();
   
-  if(deployment_set_node_id_ieee_addr()){
-    printf("NODE addr set successfully: %d\n", node_id);
-  }else{
-    printf("Failed to set nodeID\n");
-  }
-  dwt_setcallbacks(NULL, &rx_ok_cb, NULL, &rx_err_cb);
+  // if(deployment_set_node_id_ieee_addr()){
+  //   printf("NODE addr set successfully: %d\n", node_id);
+  // }else{
+  //   printf("Failed to set nodeID\n");
+  // }
 
+  node_id = get_node_addr();
+  dwt_setcallbacks(NULL, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
 
-  switch (node_id){
-    case 126:
-        config.rxCode = 11;
+  printf("NODE ID is: %d\n", node_id);
+  rx_info.ts_rxCode = config.rxCode;
+
+  switch (node_id){    
+    case 169:
+        rx_info.rxCode = 10;
+        rx_info.rx_wait_us = 1200;
       break;
-
-    case 128:
-        config.rxCode = 12;
+    case 164:
+        rx_info.rxCode = 11;
+        rx_info.rx_wait_us = 1800;
       break;
-
-    case 131:
-        config.rxCode = 9;
+    case 168:
+        rx_info.rxCode = 12;
+        rx_info.rx_wait_us = 1500;
+      break;
+    case 161:
+        rx_info.rxCode = 13;
+        rx_info.rx_wait_us = 2100;
       break;
     
-    case 135:
-        config.rxCode = 10;
-      break;
-    
+
     default:
       break;
   }
