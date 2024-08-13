@@ -46,7 +46,7 @@
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
-#define FRAME_SIZE          100
+#define FRAME_SIZE          10
 /*---------------------------------------------------------------------------*/
 typedef struct {
   uint8_t packet_type;
@@ -66,6 +66,7 @@ typedef struct{
   uint32_t ts_seq;
 } data_payload;
 
+uint16_t node_id = 0;
 
 /*---------------------------------------------------------------------------*/
 
@@ -76,13 +77,13 @@ packet_t txpkt;
 dwt_config_t config =   {
     5, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
-    DWT_PLEN_256, /* Preamble length. Used in TX only. */
+    DWT_PLEN_1024, /* Preamble length. Used in TX only. */
     DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
     1, /* 0 to use standard SFD, 1 to use non-standard SFD. */
     DWT_BR_6M8, /* Data rate. */
-    DWT_PHRMODE_STD, /* PHY header mode. */
+    DWT_PHRMODE_EXT, /* PHY header mode. */
     (8000 + 1 + 64 - 64) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
 };
 
@@ -103,7 +104,6 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
   
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
-  printf("RX ERR: %x\n", cb_data->status);
   
 }
 
@@ -115,12 +115,6 @@ PROCESS_THREAD(range_process, ev, data)
   PROCESS_BEGIN();
   
   dwt_setcallbacks(&tx_ok_cb, NULL, NULL, &rx_err_cb);
-
-  if(deployment_set_node_id_ieee_addr()){
-    printf("NODE addr set successfully: %d\n", node_id);
-  }else{
-    printf("Failed to set nodeID\n");
-  }
 
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);

@@ -48,8 +48,9 @@ PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
 #define FRAME_SIZE          1022
 #define PACKET_TS           1
+#define PACKET_DA           2
 #define UUS_TO_DWT_TIME     65536
-// #define TS_WAIT          
+#define TS_WAIT          
 
 # define TARGET_XTAL_OFFSET_VALUE_PPM_MIN    (-8.0f)
 # define TARGET_XTAL_OFFSET_VALUE_PPM_MAX    (-6.0f)
@@ -59,7 +60,7 @@ AUTOSTART_PROCESSES(&range_process);
 
 /* The typical trimming range is ~48ppm over all steps, see chapter "5.14.2 Crystal Oscillator Trim" of DW1000 Datasheet */
 #define AVG_TRIM_PER_PPM                    ((FS_XTALT_MAX_VAL+1)/48.0f)
-
+#define UUS_TO_DWT_TIME 65536
 
 
 /*---------------------------------------------------------------------------*/
@@ -85,6 +86,7 @@ typedef struct{
   uint8_t tx_PC;
   uint16_t packet_len;
   uint16_t tx_IPI_ms;
+  uint16_t tx_wait_us;
 } sender_info_t;
 
 /*---------------------------------------------------------------------------*/
@@ -95,7 +97,7 @@ sender_info_t instance_info;
 
 int uCurrentTrim_val;
 float xtalOffset_ppm;
-
+static struct etimer et;
 static float freqMultiplier = FREQ_OFFSET_MULTIPLIER_110KB;    /* Frequency Multiplier         : Depends on .dataRate in the communication configuration */
 static float hzMultiplier   = HERTZ_TO_PPM_MULTIPLIER_CHAN_2;  /* Hz to PPM transfer Multiplier: Depends on .chan in the communication configuration */
 
@@ -103,7 +105,7 @@ static float hzMultiplier   = HERTZ_TO_PPM_MULTIPLIER_CHAN_2;  /* Hz to PPM tran
 dwt_config_t config =   {
     5, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
-    DWT_PLEN_64, /* Preamble length. Used in TX only. */
+    DWT_PLEN_128, /* Preamble length. Used in TX only. */
     DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
@@ -121,68 +123,6 @@ dwt_txconfig_t txConf = {
 uint16_t node_id = 0;
 
 /*---------------------------------------------------------------------------*/
-
-
-void tx_ok_cb(const dwt_cb_data_t *cb_data){
-  txpkt.seq++;
-#ifdef TS_WAIT
-  dwt_forcetrxoff();
-  dwt_rxenable(DWT_START_RX_IMMEDIATE);
-#else
-  dwt_forcetrxoff();
-  dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
-  dwt_writetxfctrl(instance_info.packet_len, 0, 0);
-  if (instance_info.tx_IPI_ms != 0){
-
-  }
-  dwt_starttx(DWT_START_TX_IMMEDIATE);
-#endif
-}
-
-float abs(float i){
-  if (i < 0)
-    return -1 * i;
-  return i;
-}
-
-void rx_err_cb(const dwt_cb_data_t *cb_data){
-  
-  dwt_forcetrxoff();
-  dwt_rxenable(DWT_START_RX_IMMEDIATE);
-  printf("RX ERR: %x\n", cb_data->status);
-  // printf("TX OK Sender\n");
-}
-
-void rx_ok_cb(const dwt_cb_data_t *cb_data){
-  uint32_t rx_time = dwt_readrxtimestamphi32();
-  dwt_forcetrxoff();
-  dwt_readrxdata((uint8_t *) &rxpkt, cb_data->datalength, 0);
-  int32    tmp;
-  tmp = dwt_readcarrierintegrator();
-  xtalOffset_ppm = tmp * (freqMultiplier * hzMultiplier);
-  uint32_t tx_time = rx_time + ((UUS_TO_DWT_TIME * 5000) >> 8);
-  dwt_setdelayedtrxtime(tx_time);
-  dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
-  dwt_writetxfctrl(FRAME_SIZE, 0, 0);
-  if (rxpkt.packet_type == PACKET_TS){
-    dwt_writetxfctrl(FRAME_SIZE, 0, 0);
-    if (dwt_starttx(DWT_START_TX_DELAYED) == DWT_SUCCESS){
-      // printf("TS Frame: %d\n", rxpkt.seq);
-    }else{
-      printf("TX failed \n");
-    }
-    
-  }else{
-    printf("Something else\n");
-  }
-  printf("CLK offset: %d\n", (int) (xtalOffset_ppm * 10));
-  if ((xtalOffset_ppm) < TARGET_XTAL_OFFSET_VALUE_PPM_MIN || (xtalOffset_ppm) > TARGET_XTAL_OFFSET_VALUE_PPM_MAX){
-    uCurrentTrim_val -= ((TARGET_XTAL_OFFSET_VALUE_PPM_MAX + TARGET_XTAL_OFFSET_VALUE_PPM_MIN)/2 + xtalOffset_ppm) * AVG_TRIM_PER_PPM;
-    uCurrentTrim_val &= FS_XTALT_MASK;
-    dwt_setxtaltrim(uCurrentTrim_val);
-  }
-  
-}
 
 
 uint16_t get_node_addr(){
@@ -248,9 +188,74 @@ uint16_t get_node_addr(){
 }
 
 
+
+void tx_ok_cb(const dwt_cb_data_t *cb_data){
+  txpkt.seq++;
+  uint32_t tx_timestamp;
+  tx_timestamp = dwt_readtxtimestamphi32();
+#ifdef TS_WAIT
+  dwt_forcetrxoff();
+  dwt_rxenable(DWT_START_RX_IMMEDIATE);
+#else
+  dwt_forcetrxoff();
+  dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
+  dwt_writetxfctrl(instance_info.packet_len, 0, 0);
+  if (instance_info.tx_IPI_ms != 0){
+    tx_timestamp += (2000 * UUS_TO_DWT_TIME) >> 8;
+    dwt_setdelayedtrxtime(tx_timestamp);
+    dwt_starttx(DWT_START_RX_DELAYED);
+  }else{
+    dwt_starttx(DWT_START_TX_IMMEDIATE);
+  }
+  
+#endif
+}
+
+float abs(float i){
+  if (i < 0)
+    return -1 * i;
+  return i;
+}
+
+void rx_err_cb(const dwt_cb_data_t *cb_data){
+  
+  dwt_forcetrxoff();
+  dwt_rxenable(DWT_START_RX_IMMEDIATE);
+  printf("RXERR\n");
+}
+
+void rx_ok_cb(const dwt_cb_data_t *cb_data){
+  uint32_t rx_time = dwt_readrxtimestamphi32();
+  dwt_forcetrxoff();
+  dwt_readrxdata((uint8_t *) &rxpkt, cb_data->datalength, 0);
+  int32    tmp;
+  tmp = dwt_readcarrierintegrator();
+  xtalOffset_ppm = tmp * (freqMultiplier * hzMultiplier);
+  uint32_t tx_time = rx_time + ((UUS_TO_DWT_TIME * instance_info.tx_wait_us) >> 8);
+  dwt_setdelayedtrxtime(tx_time);
+  dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
+  dwt_writetxfctrl(instance_info.packet_len, 0, 0);
+  if (rxpkt.packet_type == PACKET_TS){
+    dwt_writetxfctrl(FRAME_SIZE, 0, 0);
+    if (dwt_starttx(DWT_START_TX_DELAYED) == DWT_SUCCESS){
+      printf("TS Frame: %d\n", rxpkt.seq);
+    }else{
+      printf("TX failed \n");
+    }
+    
+  }else{
+    printf("Something else\n");
+  }
+  
+}
+
+
+
+
+
 PROCESS_THREAD(range_process, ev, data)
 {
-  static struct etimer et;
+  
   uint8_t irq_status;
   
 
@@ -265,49 +270,36 @@ PROCESS_THREAD(range_process, ev, data)
   // }
 
   node_id = get_node_addr();
-  instance_info.packet_len = FRAME_SIZE;
+  instance_info.packet_len = 100;
   instance_info.tx_IPI_ms = 0;
 
   printf("NODE ID is: %d\n", node_id);
-
+  config.txPreambLength = DWT_PLEN_128;
   switch (node_id){
-  case 161:
-      instance_info.tx_PC = 9;
-      instance_info.packet_len = 50;
-    break;
-  
-  case 162:
-      instance_info.tx_PC = 10;
-      instance_info.packet_len = 50;
-    break;
   case 163:
-      instance_info.tx_PC = 11;
-      instance_info.packet_len = 50;
-    break;
-  case 164:
-      instance_info.tx_PC = 12;
-      instance_info.packet_len = 50;
-    break;
-  case 165:
-      instance_info.tx_PC = 13;
-      instance_info.packet_len = 50;
-    break;
-
-
-
-
-  case 133:
       instance_info.tx_PC = 10;
+      instance_info.tx_wait_us = 1300;
       // config.txPreambLength = DWT_PLEN_1024;
-      instance_info.packet_len = 35;
+    break;
+  case 170:
+      instance_info.tx_PC = 11;
+      instance_info.tx_wait_us = 2000;
+    break;
+  case 162:
+      instance_info.tx_PC = 12;
+      instance_info.tx_wait_us = 1700;
+      // config.txPreambLength = DWT_PLEN_256;
+    break;
+  case 167:
+      instance_info.tx_PC = 13;
+      instance_info.tx_wait_us = 2300;
+      // config.txPreambLength = DWT_PLEN_256;
     break;
   
   default:
     break;
   }
-  
-  instance_info.packet_len = 50;
-  
+  instance_info.packet_len = 1020;
   config.txCode = instance_info.tx_PC;
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
@@ -316,6 +308,7 @@ PROCESS_THREAD(range_process, ev, data)
   txpkt.src = node_id;
   txpkt.dst = 0xffffffff;
   txpkt.seq = 0;
+  txpkt.packet_type = PACKET_DA;
 
 
   

@@ -118,51 +118,48 @@ static uint8_t rtx_buf[MAX_BUF_LEN];
 PROCESS_THREAD(range_process, ev, data)
 {
   static struct etimer et;
-  // static struct etimer timeout;
-  // static int status;
+  static struct etimer timeout;
+  static int status;
   uint8_t irq_status;
-  const dwt_cb_data_t dd;
-  // tx_ok_cb(&dd);
-
   PROCESS_BEGIN();
   
-  // printf("I am %02x%02x dst %02x%02x\n",
-  //        linkaddr_node_addr.u8[0],
-  //        linkaddr_node_addr.u8[1],
-  //        dst.u8[0],
-  //        dst.u8[1]);
+  printf("I am %02x%02x dst %02x%02x\n",
+         linkaddr_node_addr.u8[0],
+         linkaddr_node_addr.u8[1],
+         dst.u8[0],
+         dst.u8[1]);
 
-  // if(!linkaddr_cmp(&linkaddr_node_addr, &dst)) {
+  if(!linkaddr_cmp(&linkaddr_node_addr, &dst)) {
 
-  //   etimer_set(&et, 5 * CLOCK_SECOND);
-  //   PROCESS_WAIT_UNTIL(etimer_expired(&et));
-  //   printf("I am %02x%02x ranging with %02x%02x\n",
-  //          linkaddr_node_addr.u8[0],
-  //          linkaddr_node_addr.u8[1],
-  //          dst.u8[0],
-  //          dst.u8[1]);
+    etimer_set(&et, 5 * CLOCK_SECOND);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    printf("I am %02x%02x ranging with %02x%02x\n",
+           linkaddr_node_addr.u8[0],
+           linkaddr_node_addr.u8[1],
+           dst.u8[0],
+           dst.u8[1]);
 
-  //   while(1) {
-  //     printf("R req\n");
-  //     status = range_with(&dst, DW1000_RNG_DS);
-  //     if(!status) {
-  //       printf("R req failed\n");
-  //     } else {
-  //       etimer_set(&timeout, RANGING_TIMEOUT);
-  //       PROCESS_YIELD_UNTIL((ev == ranging_event || etimer_expired(&timeout)));
-  //       if(etimer_expired(&timeout)) {
-  //         printf("R TIMEOUT\n");
-  //       } else if(((ranging_data_t *)data)->status) {
-  //         ranging_data_t *d = data;
-  //         printf("R success: %d bias %d\n", (int)(100*d->raw_distance), (int)(100*d->distance));
-  //       } else {
-  //         printf("R FAIL\n");
-  //       }
-  //     }
-  //     etimer_set(&et, CLOCK_SECOND / 50);
-  //     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-  //   }
-  // }
+    while(1) {
+      printf("R req\n");
+      status = range_with(&dst, DW1000_RNG_DS);
+      if(!status) {
+        printf("R req failed\n");
+      } else {
+        etimer_set(&timeout, RANGING_TIMEOUT);
+        PROCESS_YIELD_UNTIL((ev == ranging_event || etimer_expired(&timeout)));
+        if(etimer_expired(&timeout)) {
+          printf("R TIMEOUT\n");
+        } else if(((ranging_data_t *)data)->status) {
+          ranging_data_t *d = data;
+          printf("R success: %d bias %d\n", (int)(100*d->raw_distance), (int)(100*d->distance));
+        } else {
+          printf("R FAIL\n");
+        }
+      }
+      etimer_set(&et, CLOCK_SECOND / 50);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    }
+  }
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
