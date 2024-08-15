@@ -167,8 +167,8 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   
   // if (rxpkt.seq - last_seq != 1)
-  //   printf("Diff: %d, %d\n", rxpkt.seq, rxpkt.seq - last_seq);
   if (rxpkt.packet_type == 1){
+    printf("NOT HERE\n");
     config.rxCode = rx_info.rxCode;
     dwt_configure(&config);
     dwt_setpreambledetecttimeout(500);
@@ -181,14 +181,15 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
     last_seq = rxpkt.seq;
     packets_received++;
     config.rxCode = rx_info.ts_rxCode;
-    dwt_configure(&config);
+    // dwt_configure(&config);
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    dwt_setpreambledetecttimeout(0);
+    // dwt_setpreambledetecttimeout(0);
   }
   
 }
 
 void rx_to_cb(const dwt_cb_data_t *cb_data){
+  printf("NOT HERE\n");
   config.rxCode = rx_info.ts_rxCode;
   dwt_configure(&config);
   dwt_setpreambledetecttimeout(0);
@@ -224,28 +225,40 @@ PROCESS_THREAD(range_process, ev, data)
   rx_info.ts_rxCode = config.rxCode;
 
   switch (node_id){    
-    case 169:
+    case 166:
         rx_info.rxCode = 10;
         rx_info.rx_wait_us = 1200;
       break;
-    case 164:
+    case 165:
         rx_info.rxCode = 11;
         rx_info.rx_wait_us = 1800;
       break;
-    case 168:
+    case 164:
         rx_info.rxCode = 12;
         rx_info.rx_wait_us = 1500;
       break;
-    case 161:
+    case 163:
         rx_info.rxCode = 13;
         rx_info.rx_wait_us = 2100;
       break;
-    
+    case 162:
+        rx_info.rxCode = 14;
+        rx_info.rx_wait_us = 2100;
+      break;
+    case 161:
+        rx_info.rxCode = 15;
+        rx_info.rx_wait_us = 2100;
+      break;
+    case 160:
+        rx_info.rxCode = 16;
+        rx_info.rx_wait_us = 2100;
+      break;
 
     default:
       break;
   }
-
+  config.rxCode = rx_info.rxCode;
+  rx_info.ts_rxCode = config.rxCode;
   dwt_configure(&config);
   bytes_received = 0;
   dwt_forcetrxoff();

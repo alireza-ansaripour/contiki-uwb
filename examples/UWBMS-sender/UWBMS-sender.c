@@ -50,7 +50,7 @@ AUTOSTART_PROCESSES(&range_process);
 #define PACKET_TS           1
 #define PACKET_DA           2
 #define UUS_TO_DWT_TIME     65536
-#define TS_WAIT          
+// #define TS_WAIT          
 
 # define TARGET_XTAL_OFFSET_VALUE_PPM_MIN    (-8.0f)
 # define TARGET_XTAL_OFFSET_VALUE_PPM_MAX    (-6.0f)
@@ -206,6 +206,7 @@ void tx_ok_cb(const dwt_cb_data_t *cb_data){
     dwt_starttx(DWT_START_RX_DELAYED);
   }else{
     dwt_starttx(DWT_START_TX_IMMEDIATE);
+    printf("TX done\n");
   }
   
 #endif
@@ -271,27 +272,45 @@ PROCESS_THREAD(range_process, ev, data)
 
   node_id = get_node_addr();
   instance_info.packet_len = 100;
-  instance_info.tx_IPI_ms = 0;
+  instance_info.tx_IPI_ms = 1500;
 
   printf("NODE ID is: %d\n", node_id);
   config.txPreambLength = DWT_PLEN_128;
   switch (node_id){
-  case 163:
+  case 167:
       instance_info.tx_PC = 10;
       instance_info.tx_wait_us = 1300;
       // config.txPreambLength = DWT_PLEN_1024;
     break;
-  case 170:
+  case 168:
       instance_info.tx_PC = 11;
       instance_info.tx_wait_us = 2000;
     break;
-  case 162:
+  case 169:
       instance_info.tx_PC = 12;
       instance_info.tx_wait_us = 1700;
       // config.txPreambLength = DWT_PLEN_256;
     break;
-  case 167:
+  case 170:
       instance_info.tx_PC = 13;
+      instance_info.tx_wait_us = 2300;
+      // config.txPreambLength = DWT_PLEN_256;
+    break;
+    
+  case 171:
+      instance_info.tx_PC = 14;
+      instance_info.tx_wait_us = 2300;
+      // config.txPreambLength = DWT_PLEN_256;
+    break;
+    
+  case 172:
+      instance_info.tx_PC = 15;
+      instance_info.tx_wait_us = 2300;
+      // config.txPreambLength = DWT_PLEN_256;
+    break;
+  
+  case 173:
+      instance_info.tx_PC = 16;
       instance_info.tx_wait_us = 2300;
       // config.txPreambLength = DWT_PLEN_256;
     break;
@@ -299,6 +318,7 @@ PROCESS_THREAD(range_process, ev, data)
   default:
     break;
   }
+
   instance_info.packet_len = 1020;
   config.txCode = instance_info.tx_PC;
   dwt_configure(&config);
@@ -321,7 +341,9 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
 #else
   
-  dwt_starttx(DWT_START_TX_IMMEDIATE);
+  if (dwt_starttx(DWT_START_TX_IMMEDIATE) == DWT_SUCCESS){
+    printf("here\n");
+  }
 #endif
   
   
