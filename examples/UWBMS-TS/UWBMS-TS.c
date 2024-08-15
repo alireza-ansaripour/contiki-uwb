@@ -116,12 +116,6 @@ PROCESS_THREAD(range_process, ev, data)
   
   dwt_setcallbacks(&tx_ok_cb, NULL, NULL, &rx_err_cb);
 
-  if(deployment_set_node_id_ieee_addr()){
-    printf("NODE addr set successfully: %d\n", node_id);
-  }else{
-    printf("Failed to set nodeID\n");
-  }
-
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
