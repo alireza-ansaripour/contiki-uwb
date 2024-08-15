@@ -82,7 +82,7 @@ dwt_config_t config =   {
     9, /* RX preamble code. Used in RX only. */
     1, /* 0 to use standard SFD, 1 to use non-standard SFD. */
     DWT_BR_6M8, /* Data rate. */
-    DWT_PHRMODE_STD, /* PHY header mode. */
+    DWT_PHRMODE_EXT, /* PHY header mode. */
     (8000 + 1 + 64 - 64) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
 };
 
@@ -134,13 +134,11 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_writetxdata(FRAME_SIZE, (uint8_t *) &txpkt, 0);
   dwt_writetxfctrl(FRAME_SIZE, 0, 0);
 
-  
-  etimer_set(&et, CLOCK_SECOND * 4);
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
 
   while (1){
     // dwt_forcetrxoff();
-    etimer_set(&et, 10);
+    etimer_set(&et, CLOCK_SECOND);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     dwt_forcetrxoff();
     dwt_writetxdata(20, (uint8_t *) &txpkt, 0);

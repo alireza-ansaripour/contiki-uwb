@@ -3,7 +3,7 @@ all: $(CONTIKI_PROJECT)
 TESTBED?=mytestbed-${TARGET}
 
 PROJECTDIRS += ../deployment ../deployment/$(TESTBED)
-PROJECT_SOURCEFILES += deployment.c node-map.c
+PROJECT_SOURCEFILES += deployment.c node-map.c callbacks.c
 
 # enable softdevice
 #NRF52_SOFTDEVICE = 132
