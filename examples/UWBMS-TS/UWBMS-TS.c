@@ -121,7 +121,7 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_forcetrxoff();
 
   txpkt.packet_type = 1;
-  txpkt.src = node_id;
+  txpkt.src = 0;
   txpkt.dst = 0xffffffff;
   txpkt.seq = 0;
 

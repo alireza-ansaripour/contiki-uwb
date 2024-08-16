@@ -1,34 +1,32 @@
-/*
- * Copyright (c) 2017, University of Trento.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above
- *    copyright notice, this list of conditions and the following
- *    disclaimer in the documentation and/or other materials provided
- *    with the distribution.
- * 3. The name of the author may not be used to endorse or promote
- *    products derived from this software without specific prior
- *    written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS
- * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- */
-#include "callbacks.h"
+
+
+
+
+#include "callbacks_tx.h"
+#define TS_WAIT             1
+
+void tx_ok_cb(const dwt_cb_data_t *cb_data){
+  txpkt.seq++;
+#if TS_WAIT == 1
+  if (txpkt.seq < instance_info.end_seq){
+    dwt_forcetrxoff();
+    dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
+    dwt_writetxfctrl(instance_info.packet_len, 0, 0);
+    dwt_starttx(DWT_START_TX_IMMEDIATE);
+  }else{
+    dwt_forcetrxoff();
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+  }
+  printf("TX done\n");
+#else
+  dwt_forcetrxoff();
+  dwt_writetxfctrl(instance_info.packet_len, 0, 0);
+  dwt_starttx(DWT_START_TX_IMMEDIATE);
+  dwt_writetxdata(20, (uint8_t *) &txpkt, 0);
+  printf("TX done NS\n");
+#endif
+}
+
 
 PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
@@ -122,7 +120,7 @@ PROCESS_THREAD(range_process, ev, data)
     break;
   case 173:
       instance_info.tx_PC = 11;
-      instance_info.tx_wait_us = 2200;
+      instance_info.tx_wait_us = 1700;
       instance_info.tx_packet_num = 2;
     break;
   

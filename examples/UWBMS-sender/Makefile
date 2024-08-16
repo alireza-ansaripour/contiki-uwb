@@ -13,6 +13,7 @@ NRF_LOG_OVER_RTT = 1
 CFLAGS += -DNRF_SHOW_RESETREASON
 
 DEFINES+=PROJECT_CONF_H=\"project-conf.h\"
+
 # DEFINES+=PROJECT_CONF_H=\"configs.h\"
 
 # Enable Rime stack

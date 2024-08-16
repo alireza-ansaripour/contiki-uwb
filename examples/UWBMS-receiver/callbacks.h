@@ -17,7 +17,6 @@
 PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
 #define UUS_TO_DWT_TIME           65536
-#define TS_WAIT                   0
 /*---------------------------------------------------------------------------*/
 typedef struct {
   uint8_t packet_type;
@@ -107,7 +106,7 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
   config.rxCode = rx_info.ts_rxCode;
   dwt_configure(&config);
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
-  printf("RX ERR: %d\n", cb_data->status);
+  // printf("RX ERR: %d\n", cb_data->status);
 }
 
 
