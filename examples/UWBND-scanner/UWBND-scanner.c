@@ -151,7 +151,7 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
 
-  T_SCAN = 105;
+  T_SCAN = 500;
   T_INT  = 1000;
 
   printf("Starting Scanner with: T_ADV = %d, & T_INT = %d\n", T_SCAN, T_INT);

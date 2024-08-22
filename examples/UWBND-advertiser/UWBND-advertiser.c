@@ -135,33 +135,9 @@ PROCESS_THREAD(range_process, ev, data)
   }else{
     printf("Failed to set nodeID\n");
   }
-
-  switch(node_id){
-    case 7:
-    case 8:
-      T_ADV = 20;
-      break;
-    case 9:
-    case 10:
-      T_ADV = 30;
-      break;
-    case 11:
-    case 12:
-      T_ADV = 200;
-      break;
-    
-    case 15:
-    case 16:
-      T_ADV = 50;
-      break;
-    
-    default:
-      T_ADV = 100;
-      break;
-  }
   
   
-
+  T_ADV = 100;
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff(); 
