@@ -51,7 +51,7 @@ PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
-#define TX_INTERVAL 1
+#define TX_INTERVAL 20
 
 uint8_t payload[3];
 
@@ -116,15 +116,27 @@ PROCESS_THREAD(range_process, ev, data)
   PROCESS_BEGIN();
   static struct etimer et;
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
-  etimer_set(&et, 5 * CLOCK_SECOND);
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
+  if(deployment_set_node_id_ieee_addr()){
+    printf("NODE addr set successfully: %d\n", node_id);
+  }else{
+    printf("Failed to set nodeID\n");
+  }
+
+  switch(node_id){
+    case 61:
+      config.prf = DWT_PRF_16M;
+      config.txCode = 1;
+    break;
+
+  }
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
 
   dwt_writetxdata(sizeof(payload), payload, 0);
   dwt_writetxfctrl(sizeof(payload), 0, 0);
-  printf("Starting Interupter\n");
+  printf("Starting Interupter %d\n", TX_INTERVAL);
   dwt_setpreambledetecttimeout(0);
   index_cnt = 0;
 
