@@ -120,8 +120,11 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
       if (report.ids[i] == *n_id)
         add = false;
     }
-    if (add)
+    if (add){
       report.ids[index_cnt++] = *n_id;
+      printf("found %d\n", *n_id);
+    }
+      
   }
 }
 
