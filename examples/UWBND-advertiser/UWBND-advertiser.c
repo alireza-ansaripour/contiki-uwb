@@ -60,7 +60,7 @@ typedef enum{
 #define SFD_TO                          1
 #define PAC                             DWT_PAC8
 #define SNIFF_INTERVAL                  500
-#define RAPID_SNIFF_INTERVAL            10
+#define RAPID_SNIFF_INTERVAL            50
 #define P2_TO_THRESH                    SNIFF_INTERVAL + 10
 #define CLS_TO_THRESH                   500
 #define CCA_EN                          0
@@ -97,6 +97,7 @@ int CLS_timeout = 0;
 bool config_change = false;
 int cca_timer = 0;
 int back_off = 0;
+int sniff_cnt = 0;
 /*---------------------------------------------------------------------------*/
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
@@ -237,7 +238,7 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       P2_timeout = 0;
       CLS_timeout = 0;
-      back_off = 0;
+      sniff_cnt = 1;
     }
     if (detection_status == RX_WAK_P2){
       config_change = false;
@@ -269,6 +270,7 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_forcetrxoff();
       dwt_rxreset();
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      sniff_cnt++;
     }
 #if(TS_MODE == 1)
     if (detection_status == RX_WAK_P3){
@@ -334,7 +336,7 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_forcetrxoff();
       dwt_writetxdata(sizeof(payload), payload, 0);
       dwt_writetxfctrl(sizeof(payload), 0, 0);
-      printf("TX: %d, %d\n", node_id, back_off);
+      printf("TX: %d, %d\n", node_id, sniff_cnt);
       if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
         printf("TX ERR\n");
 

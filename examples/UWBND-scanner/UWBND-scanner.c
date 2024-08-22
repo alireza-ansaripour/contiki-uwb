@@ -69,7 +69,7 @@ typedef enum{
 
 #define WaC1_LEN_MS      505
 #define WaC2_LEN_MS      52   
-#define LISTEN_LEN_MS    300
+#define LISTEN_LEN_MS    60
 #define TS_MSG           0
 
 #define WAC2_PC          1
@@ -233,9 +233,8 @@ PROCESS_THREAD(range_process, ev, data)
       printf("%d, ", report.ids[i]);
     }
     printf("\n");
-    printf("Error cnt: %d\n", error_cnt);
     unsigned short r = random_rand();
-    etimer_set(&et, CLOCK_SECOND * 100);
+    etimer_set(&et, 500);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
   }
   
