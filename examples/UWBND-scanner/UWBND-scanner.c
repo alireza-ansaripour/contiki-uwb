@@ -71,7 +71,8 @@ typedef enum{
 #define WaC2_LEN_MS      52
 #define LISTEN_LEN_MS    100
 #define TS_MSG           0
-
+#define SNIFF_ON_TIME  1
+#define SNIFF_OFF_TIME 48
 /*---------------------------------------------------------------------------*/
 
 uint8_t payload[10];
@@ -87,7 +88,7 @@ dwt_config_t config = {
     3, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_4096, /* Preamble length. Used in TX only. */
-    DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
+    DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
@@ -152,6 +153,9 @@ PROCESS_THREAD(range_process, ev, data)
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
+  
+  dwt_setsniffmode(1, SNIFF_ON_TIME, SNIFF_OFF_TIME);
+  
   dwt_forcetrxoff();
 
   T_SCAN = 500;
