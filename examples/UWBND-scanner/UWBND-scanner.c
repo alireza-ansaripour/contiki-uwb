@@ -60,12 +60,12 @@ int receiver_ind = 0;
 dwt_config_t config = {
     3, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
-    DWT_PLEN_2048, /* Preamble length. Used in TX only. */
+    DWT_PLEN_4096, /* Preamble length. Used in TX only. */
     DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
-    DWT_BR_850K, /* Data rate. */
+    DWT_BR_6M8, /* Data rate. */
     DWT_PHRMODE_STD, /* PHY header mode. */
     (2000) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
 };
@@ -124,7 +124,7 @@ PROCESS_THREAD(range_process, ev, data)
 
   PROCESS_BEGIN();
   static struct etimer et;
-  printf("STARTING scanner with PLEN %d\n", config.txPreambLength);
+  printf("STARTING scanner with PLEN %d, payload size: %d\n", config.txPreambLength, sizeof(payload));
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
   clock_init();
   etimer_set(&et, CLOCK_SECOND * 9);
@@ -154,7 +154,7 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     etimer_set(&et, 2000);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    printf("RX Finish %d -> ", receiver_ind);
+    printf("Report %d -> ", receiver_ind);
     for (int i=0; i < receiver_ind; i++){
       printf("%d, ", receivers[i]);
     }
@@ -162,7 +162,7 @@ PROCESS_THREAD(range_process, ev, data)
     receiver_ind = 0;
     dwt_forcetrxoff(); // Finish Scanning and wait for 30s
     // break;
-    etimer_set(&et, CLOCK_SECOND * 10);
+    etimer_set(&et, CLOCK_SECOND);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     payload[1]++;
     /* code */
