@@ -60,7 +60,7 @@ typedef enum{
 #define SFD_TO                          1
 #define PAC                             DWT_PAC8
 #define SNIFF_INTERVAL                  500
-#define RAPID_SNIFF_INTERVAL            10
+#define RAPID_SNIFF_INTERVAL            50
 #define P2_TO_THRESH                    SNIFF_INTERVAL + 10
 #define CLS_TO_THRESH                   500
 #define CCA_EN                          0
@@ -187,7 +187,7 @@ PROCESS_THREAD(range_process, ev, data)
   static struct etimer et;
   static struct etimer timeout;
   static int status;
-  
+  static int sniff_cnt = 0;
 
   PROCESS_BEGIN();
   static struct etimer et;
@@ -238,6 +238,7 @@ PROCESS_THREAD(range_process, ev, data)
       P2_timeout = 0;
       CLS_timeout = 0;
       back_off = 0;
+      sniff_cnt = 1;
     }
     if (detection_status == RX_WAK_P2){
       config_change = false;
@@ -264,33 +265,13 @@ PROCESS_THREAD(range_process, ev, data)
         dwt_forcetrxoff();
         dwt_rxreset();
         detection_status = RX_WAK_P1;
-        printf("TO\n");
+        printf("TO %d\n", sniff_cnt);
       }
       dwt_forcetrxoff();
       dwt_rxreset();
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      sniff_cnt += 1;
     }
-#if(TS_MODE == 1)
-    if (detection_status == RX_WAK_P3){
-      config.prf = DWT_PRF_64M;
-      config.rxCode = 9;
-      config.rxPAC = DWT_PAC32;
-      config.sfdTO = 8000;
-      dwt_configure(&config);
-      dwt_setpreambledetecttimeout(0);
-      dwt_forcetrxoff();
-      if(dwt_rxenable(DWT_START_RX_IMMEDIATE) != DWT_SUCCESS){
-        printf("NOT OK\n");
-      }
-      detection_status = WAITING_TS;
-      printf("Waiting for TS MSG\n");
-    }
-    if (detection_status == WAITING){
-      etimer_set(&et, 2 * (node_id % 100) + 2);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      detection_status = RDY_TO_TX;
-    }
-#else
     if (detection_status == WAITING){
       config.prf = DWT_PRF_64M;
       config.rxCode = 9;
@@ -316,14 +297,6 @@ PROCESS_THREAD(range_process, ev, data)
       cca_timer = 2 +  (random_rand() % 30);
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
     }
-
-    if (detection_status == CCA){
-      cca_timer--;
-      if (cca_timer <= 0){
-        detection_status = RDY_TO_TX;
-      }
-    }
-#endif
     if (detection_status == RDY_TO_TX){
       detection_status = RX_WAK_P1;
       config.rxPAC = PAC;
@@ -334,7 +307,7 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_forcetrxoff();
       dwt_writetxdata(sizeof(payload), payload, 0);
       dwt_writetxfctrl(sizeof(payload), 0, 0);
-      printf("TX: %d, %d\n", node_id, back_off);
+      printf("TX: %d, %d\n", node_id, sniff_cnt);
       if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
         printf("TX ERR\n");
 
