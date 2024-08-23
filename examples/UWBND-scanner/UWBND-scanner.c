@@ -40,64 +40,34 @@
 #include <string.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <math.h>
+#include "sys/timer.h"
 #include "sys/node-id.h"
 #include "net/netstack.h"
 
 #include "core/net/linkaddr.h"
-#include <sys/node-id.h>
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
-
-
-struct Scan_report{
-  int index;
-  uint16_t ids[20];
-};
-
-typedef enum{
-  CCA_1,
-  CCA_2,
-  WAK_1,
-  WAK_2,
-  TS,
-  LISTEN
-}DETECTION_STATUS;
-
 /*---------------------------------------------------------------------------*/
+#define STM32_UUID ((uint32_t *)0x1ffff7e8)
+int x = 0;
 
-#define WaC1_LEN_MS      505
-#define WaC2_LEN_MS      52   
-#define LISTEN_LEN_MS    100
-#define TS_MSG           0
-
-#define WAC2_PC          1
-#define SCAN_INTERVAL    100
-
-/*---------------------------------------------------------------------------*/
-
-uint8_t payload[10];
-uint8_t msg[7] = {0xbe, 0, 0, 0, 0, 0, 0};
-uint8_t stop_trans = 0;
-static int index_cnt = 0;
-static int error_cnt = 0;
-static struct Scan_report report;
-DETECTION_STATUS detection_status = CCA_1;
-uint32_t WaC_start_time, WaC_current_time;
-clock_time_t scan_init_time, scan_end_time;
+uint8_t payload[8] = {0xFF, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+uint8_t rx_msg[100];
+uint16_t receivers[20];
+int receiver_ind = 0;
 
 dwt_config_t config = {
-    1, /* Channel number. */
+    3, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
-    DWT_PLEN_4096, /* Preamble length. Used in TX only. */
+    DWT_PLEN_2048, /* Preamble length. Used in TX only. */
     DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
-    DWT_BR_6M8, /* Data rate. */
+    DWT_BR_850K, /* Data rate. */
     DWT_PHRMODE_STD, /* PHY header mode. */
-    (8000) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
+    (2000) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
 };
 
 dwt_txconfig_t txConf = {
@@ -106,46 +76,44 @@ dwt_txconfig_t txConf = {
 };
 
 
-/*----------------------------------------------------------------------------------*/
+uint8_t stop_trans = 0;
+clock_time_t start_time;
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
+  clock_time_t *diff_time = (clock_time_t *) &payload[2];
+  clock_time_t current_time = clock_time();
   if (stop_trans == 0){
-    WaC_current_time = clock_time();
-    uint32_t *time_diff = (uint32_t *) &msg[1];
-    *time_diff = WaC_current_time - WaC_start_time;
-    dwt_writetxdata(sizeof(msg), msg, 0);
-    dwt_writetxfctrl(sizeof(msg), 0, 0);
+    *diff_time = current_time - start_time;
+    dwt_writetxdata(sizeof(payload), payload, 0);
+    dwt_writetxfctrl(sizeof(payload), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
-  }
-  if(detection_status == TS){
-    printf("TX Done\n");
+  }else{
+    dwt_forcetrxoff();
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    // printf("TX OK %d\n", *cnt);
   }
 }
 
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
+  dwt_readrxdata(rx_msg, cb_data->datalength, 0);
+  uint8_t *node = (uint8_t *) &rx_msg[2];
   dwt_forcetrxoff();
+  dwt_rxreset();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
-  dwt_readrxdata(payload, cb_data->datalength, 0);
-  if(payload[0] == 0xbe){
-    printf("WaC detected\n");
-  }
-  if (payload[0] == 0xad){
-
-    uint16_t *n_id = (uint16_t *) &payload[2];
-    report.ids[index_cnt++] = *n_id;
-  }
+  receivers[receiver_ind++] = *node;
 }
 
 
 void rx_err_cb(const dwt_cb_data_t *cb_data){
+  
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
-  error_cnt++;
+  printf("RX ERR: %x\n", cb_data->status);
   // printf("TX OK Sender\n");
 }
 
 
-/*-------------------------------------------------------------------*/
+
 
 
 PROCESS_THREAD(range_process, ev, data)
@@ -156,77 +124,50 @@ PROCESS_THREAD(range_process, ev, data)
 
   PROCESS_BEGIN();
   static struct etimer et;
-  
+  printf("STARTING scanner with PLEN %d\n", config.txPreambLength);
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
+  clock_init();
   etimer_set(&et, CLOCK_SECOND * 9);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
-   clock_init();
-  dwt_writetxdata(sizeof(msg), msg, 0);
-  dwt_writetxfctrl(sizeof(msg), 0, 0);
-  printf("Starting scanner with WaC2: %d, SCAN_INTERVAL %d\n", WaC2_LEN_MS, SCAN_INTERVAL);
-  dwt_setpreambledetecttimeout(0);
-  index_cnt = 0;
+
+  dwt_writetxdata(sizeof(payload), payload, 0);
+  dwt_writetxfctrl(sizeof(payload), 0, 0);
 
   while (1){
-    scan_init_time = clock_time();    
-    printf("Start sending WaK: %d\n", scan_init_time);
-    /* ------------------------ Sending WaC1 --------------------------------*/
+    
     stop_trans = 0;
     dwt_forcetrxoff();
-    memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
-    dwt_writetxdata(sizeof(msg), msg, 0);
-    dwt_writetxfctrl(sizeof(msg), 0, 0);
-    detection_status = WAK_1;
+    start_time = clock_time();
+    printf("Start sending WaK %d, %d\n", payload[1], start_time);
+    dwt_writetxfctrl(sizeof(payload), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
-    WaC_start_time = clock_time();
-    etimer_set(&et, WaC1_LEN_MS); // TX WaC1
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    stop_trans = 1; 
-    dwt_forcetrxoff();
-    dwt_rxreset();
-    index_cnt = 0;
-    /* ----------------------- Changing to WaC2 -------------------------------------*/
-    printf("changing config\n");
-    config.prf = DWT_PRF_16M;
-    config.txCode = WAC2_PC;
-    dwt_configure(&config);
-    dwt_writetxdata(sizeof(msg), msg, 0);
-    dwt_writetxfctrl(sizeof(msg), 0, 0);
-    stop_trans = 0;
-    detection_status = WAK_2;
-    dwt_starttx(DWT_START_TX_IMMEDIATE);
-    etimer_set(&et, WaC2_LEN_MS); // TX WaC2
+    etimer_set(&et, 110); // TX frame for 110 ms
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     stop_trans = 1; // Once done TX start RX
-    /*------------------------------------------------------------------------------*/
+    dwt_setpreambledetecttimeout(0);
+    printf("TX done\n");
     dwt_forcetrxoff();
-    config.prf = DWT_PRF_64M;
-    config.txCode = 9;
-    dwt_configure(&config);
-    error_cnt = 0;
-    dwt_forcetrxoff();
+    dwt_rxreset();
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    printf("Listening\n");
-    etimer_set(&et, LISTEN_LEN_MS);
+    etimer_set(&et, 2000);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    
-    scan_end_time = clock_time();
-    printf("Report T:%d: %d -> ", scan_end_time - scan_init_time, index_cnt);
-    for (int i = 0; i < index_cnt; i++){
-      printf("%d, ", report.ids[i]);
+    printf("RX Finish %d -> ", receiver_ind);
+    for (int i=0; i < receiver_ind; i++){
+      printf("%d, ", receivers[i]);
     }
     printf("\n");
-    printf("Error cnt: %d\n", error_cnt);
-    unsigned short r = random_rand();
-    etimer_set(&et, (SCAN_INTERVAL * 1000) - (scan_end_time - scan_init_time));
+    receiver_ind = 0;
+    dwt_forcetrxoff(); // Finish Scanning and wait for 30s
+    // break;
+    etimer_set(&et, CLOCK_SECOND * 10);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    payload[1]++;
+    /* code */
   }
   
-
-
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
