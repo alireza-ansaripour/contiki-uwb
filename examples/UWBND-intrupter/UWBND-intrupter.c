@@ -51,9 +51,10 @@ PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
-#define TX_INTERVAL 20
+#define TX_INTERVAL 100
 
 uint8_t payload[3];
+int tx_cnt = 0;
 
 dwt_config_t config = {
     1, /* Channel number. */
@@ -63,7 +64,7 @@ dwt_config_t config = {
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
-    DWT_BR_850K, /* Data rate. */
+    DWT_BR_6M8, /* Data rate. */
     DWT_PHRMODE_STD, /* PHY header mode. */
     (2000) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
 };
@@ -83,9 +84,12 @@ struct Scan_report{
 };
 
 static struct Scan_report report;
+clock_time_t start_time, end_time;
+
+
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
-  dwt_forcetrxoff();
+  tx_cnt ++;
 }
 
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
@@ -112,7 +116,7 @@ PROCESS_THREAD(range_process, ev, data)
   static struct etimer et;
   static struct etimer timeout;
   static int status;
-
+  int res;
   PROCESS_BEGIN();
   static struct etimer et;
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
@@ -123,8 +127,11 @@ PROCESS_THREAD(range_process, ev, data)
     printf("Failed to set nodeID\n");
   }
 
+  clock_init();
+
   switch(node_id){
     case 61:
+    case 13:
       config.prf = DWT_PRF_16M;
       config.txCode = 1;
     break;
@@ -144,14 +151,18 @@ PROCESS_THREAD(range_process, ev, data)
     index_cnt = 0;
     stop_trans = 0;
     dwt_forcetrxoff();
+    start_time = clock_time();
     wait = (random_rand() % (TX_INTERVAL));
     wait2 = TX_INTERVAL - wait;
-    dwt_writetxfctrl(sizeof(payload), 0, 0);
+    
     etimer_set(&et, wait); // wait for some time after the transmission
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    dwt_starttx(DWT_START_TX_IMMEDIATE);
+    dwt_writetxfctrl(sizeof(payload), 0, 0);
+    res = dwt_starttx(DWT_START_TX_IMMEDIATE);
     etimer_set(&et, wait2); // wait for some time after the transmission
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    end_time = clock_time();
+    dwt_forcetrxoff();
     
   }
   
