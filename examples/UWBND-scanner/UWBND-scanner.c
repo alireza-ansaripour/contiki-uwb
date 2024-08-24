@@ -67,12 +67,13 @@ typedef enum{
 
 /*---------------------------------------------------------------------------*/
 
-#define WaC1_LEN_MS      502
+#define WaC1_LEN_MS      505
 #define WaC2_LEN_MS      52   
-#define LISTEN_LEN_MS    300
+#define LISTEN_LEN_MS    100
 #define TS_MSG           0
 
 #define WAC2_PC          1
+#define SCAN_INTERVAL    5
 
 /*---------------------------------------------------------------------------*/
 
@@ -84,6 +85,7 @@ static int error_cnt = 0;
 static struct Scan_report report;
 DETECTION_STATUS detection_status = CCA_1;
 uint32_t WaC_start_time, WaC_current_time;
+clock_time_t scan_init_time, scan_end_time;
 
 dwt_config_t config = {
     1, /* Channel number. */
@@ -154,21 +156,23 @@ PROCESS_THREAD(range_process, ev, data)
 
   PROCESS_BEGIN();
   static struct etimer et;
+  
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
-  etimer_set(&et, CLOCK_SECOND * 9);
+  etimer_set(&et, CLOCK_SECOND * 2);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
-
+   clock_init();
   dwt_writetxdata(sizeof(msg), msg, 0);
   dwt_writetxfctrl(sizeof(msg), 0, 0);
-  printf("Starting scanner with WaC2: %d\n", WaC2_LEN_MS);
+  printf("Starting scanner with WaC2: %d, SCAN_INTERVAL %d\n", WaC2_LEN_MS, SCAN_INTERVAL);
   dwt_setpreambledetecttimeout(0);
   index_cnt = 0;
 
-  while (1){    
-    printf("Start sending WaK\n");
+  while (1){
+    scan_init_time = clock_time();    
+    printf("Start sending WaK: %d\n", scan_init_time);
     /* ------------------------ Sending WaC1 --------------------------------*/
     stop_trans = 0;
     dwt_forcetrxoff();
@@ -184,82 +188,44 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_forcetrxoff();
     dwt_rxreset();
     index_cnt = 0;
-    // detection_status = CCA_1;
-    // if (detection_status == CCA_1){
-    //   config.rxCode = 9;
-    //   config.prf = DWT_PRF_64M;
-    //   dwt_configure(&config);
-    //   dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    //   etimer_set(&et, 10);
-    //   PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    // }
-    // if (detection_status == CCA_2){
-    //   config.rxCode = 5;
-    //   config.prf = DWT_PRF_16M;
-    //   dwt_configure(&config);
-    //   dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    //   etimer_set(&et, 10);
-    //   PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    //   if (detection_status != RX){
-    //     detection_status = TX;
-    //   }
-    // }
-      printf("Start sending WaK\n");
-      /* ------------------------ Sending WaC1 --------------------------------*/
-      stop_trans = 0;
-      dwt_forcetrxoff();
-      dwt_writetxfctrl(sizeof(msg), 0, 0);
-      dwt_starttx(DWT_START_TX_IMMEDIATE);
-      etimer_set(&et, WaC1_LEN_MS); // TX WaC1
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      stop_trans = 1; 
-      dwt_forcetrxoff();
-      dwt_rxreset();
-      /* ----------------------- Changing to WaC2 -------------------------------------*/
-      printf("changing config\n");
-      config.prf = DWT_PRF_16M;
-      config.txCode = 5;
-      dwt_configure(&config);
-      dwt_writetxdata(sizeof(msg), msg, 0);
-      dwt_writetxfctrl(sizeof(msg), 0, 0);
-      stop_trans = 0;
-      dwt_starttx(DWT_START_TX_IMMEDIATE);
-      etimer_set(&et, WaC2_LEN_MS); // TX WaC2
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      stop_trans = 1; // Once done TX start RX
-      /*------------------------------------------------------------------------------*/
-      config.prf = DWT_PRF_64M;
-      config.txCode = 9;
-      dwt_configure(&config);
-      // dwt_forcetrxoff(); // Finish Scanning and wait for 30s
-      // etimer_set(&et, 100);
-      // PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      // printf("sending message \n");
-      // dwt_writetxdata(sizeof(msg), msg, 0);
-      // dwt_writetxfctrl(sizeof(msg), 0, 0);
-      // if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
-      //   printf("We fucked up\n");
-      // }
-      // etimer_set(&et, 20);
-      // PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      /*------------------------------------------------------------------------------*/
-      dwt_forcetrxoff();
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      printf("Listening\n");
-      etimer_set(&et, 100);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      
-
-      printf("Report: %d -> ", index_cnt);
-      for (int i = 0; i < index_cnt; i++){
-        printf("%d, ", report.ids[i]);
-      }
-      printf("\n");
-      unsigned short r = random_rand();
-      etimer_set(&et, CLOCK_SECOND );
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      /* code */
+    /* ----------------------- Changing to WaC2 -------------------------------------*/
+    printf("changing config\n");
+    config.prf = DWT_PRF_16M;
+    config.txCode = WAC2_PC;
+    dwt_configure(&config);
+    dwt_writetxdata(sizeof(msg), msg, 0);
+    dwt_writetxfctrl(sizeof(msg), 0, 0);
+    stop_trans = 0;
+    detection_status = WAK_2;
+    dwt_starttx(DWT_START_TX_IMMEDIATE);
+    etimer_set(&et, WaC2_LEN_MS); // TX WaC2
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    stop_trans = 1; // Once done TX start RX
+    /*------------------------------------------------------------------------------*/
+    dwt_forcetrxoff();
+    config.prf = DWT_PRF_64M;
+    config.txCode = 9;
+    dwt_configure(&config);
+    error_cnt = 0;
+    dwt_forcetrxoff();
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    printf("Listening\n");
+    etimer_set(&et, LISTEN_LEN_MS);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    
+    scan_end_time = clock_time();
+    printf("Report T:%d: %d -> ", scan_end_time - scan_init_time, index_cnt);
+    for (int i = 0; i < index_cnt; i++){
+      printf("%d, ", report.ids[i]);
     }
+    printf("\n");
+    printf("Error cnt: %d\n", error_cnt);
+    unsigned short r = random_rand();
+    etimer_set(&et, (SCAN_INTERVAL * 1000) - (scan_end_time - scan_init_time));
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  }
+  
+
 
   PROCESS_END();
 }

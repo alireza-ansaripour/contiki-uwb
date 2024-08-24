@@ -51,7 +51,7 @@ PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
-#define TX_INTERVAL 100
+#define TX_INTERVAL 40
 
 uint8_t payload[3];
 int tx_cnt = 0;
