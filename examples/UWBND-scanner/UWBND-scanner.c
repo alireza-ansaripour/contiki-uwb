@@ -73,7 +73,7 @@ typedef enum{
 #define TS_MSG           0
 
 #define WAC2_PC          1
-#define SCAN_INTERVAL    100
+#define SCAN_INTERVAL    1
 
 /*---------------------------------------------------------------------------*/
 
@@ -158,7 +158,7 @@ PROCESS_THREAD(range_process, ev, data)
   static struct etimer et;
   
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
-  etimer_set(&et, CLOCK_SECOND * 9);
+  etimer_set(&et, CLOCK_SECOND * 2);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);

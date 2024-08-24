@@ -97,6 +97,7 @@ int CLS_timeout = 0;
 bool config_change = false;
 int cca_timer = 0;
 int back_off = 0;
+int tot_sniffs = 0;
 /*---------------------------------------------------------------------------*/
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
@@ -198,7 +199,6 @@ PROCESS_THREAD(range_process, ev, data)
     printf("Failed to set nodeID\n");
   }
   // deployment_print_id_info();
-  etimer_set(&et, CLOCK_SECOND * 1);
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
@@ -239,6 +239,7 @@ PROCESS_THREAD(range_process, ev, data)
       CLS_timeout = 0;
       back_off = 0;
       sniff_cnt = 1;
+      tot_sniffs++;
     }
     if (detection_status == RX_WAK_P2){
       config_change = false;
@@ -271,6 +272,7 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_rxreset();
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       sniff_cnt += 1;
+      tot_sniffs++;
     }
     if (detection_status == WAITING){
       config.prf = DWT_PRF_64M;
@@ -307,7 +309,7 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_forcetrxoff();
       dwt_writetxdata(sizeof(payload), payload, 0);
       dwt_writetxfctrl(sizeof(payload), 0, 0);
-      printf("TX: %d, %d\n", node_id, sniff_cnt);
+      printf("TX: %d, %d, %d\n", node_id, sniff_cnt, tot_sniffs);
       if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
         printf("TX ERR\n");
 
