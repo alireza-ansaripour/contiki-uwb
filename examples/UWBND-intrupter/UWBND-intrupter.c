@@ -51,7 +51,7 @@ PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
-#define TX_INTERVAL 40
+#define TX_INTERVAL 100
 
 uint8_t payload[3];
 int tx_cnt = 0;
@@ -130,7 +130,7 @@ PROCESS_THREAD(range_process, ev, data)
   clock_init();
 
   switch(node_id){
-    case 61:
+    case 58:
     case 13:
       config.prf = DWT_PRF_16M;
       config.txCode = 1;

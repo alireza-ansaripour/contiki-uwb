@@ -126,9 +126,6 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   dwt_readrxdata(payload, cb_data->datalength, 0);
-  if(payload[0] == 0xbe){
-    printf("WaC detected\n");
-  }
   if (payload[0] == 0xad){
 
     uint16_t *n_id = (uint16_t *) &payload[2];
