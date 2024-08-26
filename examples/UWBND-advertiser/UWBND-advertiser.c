@@ -201,7 +201,7 @@ PROCESS_THREAD(range_process, ev, data)
     printf("Failed to set nodeID\n");
   }
 
-  printf("STARTING advertiser %d, %d\n", SNIFF_INTERVAL, RAPID_SNIFF_INTERVAL);
+  printf("STARTING advertiser 2PA %d, %d\n", SNIFF_INTERVAL, RAPID_SNIFF_INTERVAL);
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   clock_init();
