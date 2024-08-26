@@ -60,8 +60,8 @@ typedef enum{
 #define SFD_TO                          1
 #define PAC                             DWT_PAC8
 #define SNIFF_INTERVAL                  500
-#define RAPID_SNIFF_INTERVAL            250
-#define P2_TO_THRESH                    SNIFF_INTERVAL + 10
+#define RAPID_SNIFF_INTERVAL            50
+#define P2_TO_THRESH                    200
 #define CLS_TO_THRESH                   500
 #define CCA_EN                          1
 #define TS_MODE                         0
@@ -209,6 +209,7 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_forcetrxoff();
   dwt_setpreambledetecttimeout(PDTO);  
   payload[2] = node_id;
+  clock_init();
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
   detection_status = RX_WAK_P1;
   
