@@ -61,7 +61,7 @@ typedef enum{
 #define PAC                             DWT_PAC8
 #define SNIFF_INTERVAL                  500
 #define RAPID_SNIFF_INTERVAL            50
-#define P2_TO_THRESH                    200
+#define P2_TO_THRESH                    150 // <- change this
 #define CLS_TO_THRESH                   500
 #define CCA_EN                          1
 #define TS_MODE                         0
@@ -101,6 +101,7 @@ int tot_sniffs = 0;
 int wac1_sniffs = 0;
 int tot_wac1_scan = 0;
 clock_time_t sniff1_start_time, WaC1_detection_time, to_tim; 
+int wac1_sniff_inteval = SNIFF_INTERVAL;
 /*---------------------------------------------------------------------------*/
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
@@ -240,12 +241,13 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_forcetrxoff();
       dwt_rxreset();
       
-      etimer_set(&et, SNIFF_INTERVAL - 6);
+      etimer_set(&et, wac1_sniff_inteval - 6);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       sniff1_start_time = clock_time();
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       etimer_set(&et, 5);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      wac1_sniff_inteval = SNIFF_INTERVAL;
       P2_timeout = 0;
       CLS_timeout = 0;
       back_off = 0;
@@ -275,16 +277,19 @@ PROCESS_THREAD(range_process, ev, data)
       
       dwt_forcetrxoff();
       dwt_rxreset();
-      etimer_set(&et, RAPID_SNIFF_INTERVAL - 1);
+      etimer_set(&et, RAPID_SNIFF_INTERVAL - 6);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       P2_timeout += RAPID_SNIFF_INTERVAL;
-      if (P2_timeout >= P2_TO_THRESH){
+      etimer_set(&et, 5);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      if (detection_status == RX_WAK_P2 &&  P2_timeout > P2_TO_THRESH){
         dwt_forcetrxoff();
         dwt_rxreset();
         detection_status = RX_WAK_P1;
         to_tim = clock_time();
         printf("TO %d, %d, %d\n", sniff_cnt, tot_sniffs, to_tim - WaC1_detection_time);
+        wac1_sniff_inteval = 7;
       }
       sniff_cnt += 1;
       tot_sniffs++;
