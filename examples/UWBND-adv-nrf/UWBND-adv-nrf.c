@@ -116,6 +116,7 @@ uint16_t get_node_ddr(){
 
 
 
+#define PDTO       3
 
 typedef enum{
   RX_WAK_P1 = 0,
@@ -131,6 +132,7 @@ uint8_t rx_msg[100];
 DETECTION_STATUS detection_status = RX_WAK_P1;
 int wait_time = 10;
 uint16_t pre_count;
+uint16_t node_id;
 
 
 dwt_txconfig_t txConf = {
@@ -189,20 +191,19 @@ dwt_config_t config = {
 
 
 
-
-
-
-
-
-
 PROCESS_THREAD(range_process, ev, data)
 {
   static struct etimer et;
   static struct etimer timeout;
-  uint16_t node_id;
+  
 
   PROCESS_BEGIN();
+  static struct etimer et;
+  dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
   node_id = get_node_ddr();
+
+
+  // deployment_print_id_info();
   etimer_set(&et, CLOCK_SECOND * 1);
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
@@ -222,7 +223,7 @@ PROCESS_THREAD(range_process, ev, data)
     }
     if (status == 1){
       clock_time_t *time = (clock_time_t *) &rx_msg[2];
-      int sleep_time = 110 - *time + ((node_id % 100) * 2);
+      int sleep_time = 500 - *time + ((node_id % 100) * 2);
       etimer_set(&et, sleep_time);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_writetxdata(sizeof(payload), payload, 0);

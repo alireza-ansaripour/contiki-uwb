@@ -124,7 +124,7 @@ PROCESS_THREAD(range_process, ev, data)
 
   PROCESS_BEGIN();
   static struct etimer et;
-  printf("STARTING scanner with PLEN %d, payload size: %d\n", config.txPreambLength, sizeof(payload));
+  printf("DWM: STARTING scanner with PLEN %d, payload size: %d\n", config.txPreambLength, sizeof(payload));
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
   clock_init();
   etimer_set(&et, CLOCK_SECOND * 9);
@@ -145,7 +145,7 @@ PROCESS_THREAD(range_process, ev, data)
     printf("Start sending WaK %d, %d\n", payload[1], start_time);
     dwt_writetxfctrl(sizeof(payload), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
-    etimer_set(&et, 110); // TX frame for 110 ms
+    etimer_set(&et, 500); // TX frame for 110 ms
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     stop_trans = 1; // Once done TX start RX
     dwt_setpreambledetecttimeout(0);
@@ -153,7 +153,7 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_forcetrxoff();
     dwt_rxreset();
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    etimer_set(&et, 2000);
+    etimer_set(&et, 300);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     printf("Report %d -> ", receiver_ind);
     for (int i=0; i < receiver_ind; i++){
