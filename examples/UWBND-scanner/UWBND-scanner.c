@@ -52,7 +52,7 @@ AUTOSTART_PROCESSES(&range_process);
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
 int x = 0;
 
-uint8_t payload[8] = {0xFF, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+uint8_t payload[100];
 uint8_t rx_msg[100];
 uint16_t receivers[20];
 int receiver_ind = 0;
@@ -132,7 +132,8 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
-
+  payload[0] = 0xff;
+  payload[1] = 0xa;
   dwt_writetxdata(sizeof(payload), payload, 0);
   dwt_writetxfctrl(sizeof(payload), 0, 0);
 
