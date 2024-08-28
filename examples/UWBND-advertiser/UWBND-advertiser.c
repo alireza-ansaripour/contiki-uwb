@@ -48,7 +48,7 @@ typedef enum{
   RX_WAK_P1 = 0,
   RX_WAK_P2 = 1,
   RX_WAK_P3 = 2,
-  WAITING_TS = 3,
+  WAITING_FOR_RPLY = 3,
   WAITING = 4,
   PKT_DETECTED=5,
   CCA = 6,
@@ -63,7 +63,7 @@ typedef enum{
 #define RAPID_SNIFF_INTERVAL            50
 #define P2_TO_THRESH                    150 // <- change this
 #define CLS_TO_THRESH                   500
-#define CCA_EN                          1
+#define CCA_EN                          0
 #define TS_MODE                         0
 
 #define WAC2_PC                         1
@@ -123,14 +123,10 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
     detection_status = PKT_DETECTED;
     break;
   
-  case WAITING_TS:
-    if(rx_payload[0] == 0xAA){
-      printf("Received TS MSG\n");
-      detection_status = WAITING;
-    }else{
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    }
-    break; 
+  case WAITING_FOR_RPLY:
+    printf("bad backet RX\n");
+    break;
+  
 
   default:
     break;
@@ -161,11 +157,11 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
   case CCA:
     detection_status = PKT_DETECTED;
     break;
-
-  case WAITING_TS:
-    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+  
+  case WAITING_FOR_RPLY:
+    printf("bad backet ERR\n");
     break;
-    
+ 
   default:
     break;
   }
@@ -298,22 +294,24 @@ PROCESS_THREAD(range_process, ev, data)
       config.prf = DWT_PRF_64M;
       config.rxCode = 9;
       config.rxPAC = DWT_PAC32;
-      config.sfdTO = 8000;
+      config.sfdTO = SFD_TO;
       dwt_configure(&config);
-      dwt_setpreambledetecttimeout(200);
+      
       
       etimer_set(&et, RAPID_SNIFF_INTERVAL + 2);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
 #if (CCA_EN == 1)
       detection_status = CCA;
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
 #else
       detection_status = RDY_TO_TX;
 #endif
     }
     if (detection_status == CCA){
-
-
+      dwt_setpreambledetecttimeout(200);
+      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      unsigned short cca_wait = 2 + (random_rand() % 5);
+      etimer_set(&et, cca_wait);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
     }
 
     if (detection_status == PKT_DETECTED){
@@ -322,11 +320,10 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
     }
     if (detection_status == RDY_TO_TX){
-      detection_status = RX_WAK_P1;
       config.rxPAC = PAC;
       config.prf = DWT_PRF_64M;
       config.rxCode = 9;
-      config.sfdTO = SFD_TO;
+      config.sfdTO = 200;
       dwt_configure(&config);
       dwt_forcetrxoff();
       dwt_writetxdata(sizeof(payload), payload, 0);
@@ -339,8 +336,13 @@ PROCESS_THREAD(range_process, ev, data)
       }
       etimer_set(&et, 10);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      detection_status = WAITING_FOR_RPLY;
       dwt_forcetrxoff();
       dwt_setpreambledetecttimeout(PDTO);
+      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      etimer_set(&et, 10);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      detection_status = RX_WAK_P1;
     }
 
   }
