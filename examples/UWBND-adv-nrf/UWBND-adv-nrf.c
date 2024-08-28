@@ -44,7 +44,6 @@
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
-#define PDTO       3
 
 /*---------------------------------------------------------------------------*/
 
@@ -116,7 +115,9 @@ uint16_t get_node_ddr(){
 
 
 
-#define PDTO       3
+#define PDTO                        3
+#define SNIFF_INTERVAL              500
+
 
 typedef enum{
   RX_WAK_P1 = 0,
@@ -202,7 +203,7 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
   node_id = get_node_ddr();
 
-
+  printf("STARTING ADV: %d\n", SNIFF_INTERVAL);
   // deployment_print_id_info();
   etimer_set(&et, CLOCK_SECOND * 1);
   dwt_configure(&config);
@@ -218,12 +219,12 @@ PROCESS_THREAD(range_process, ev, data)
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     if (status == 0){
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 99);
+      etimer_set(&et, SNIFF_INTERVAL - 1);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
     }
     if (status == 1){
       clock_time_t *time = (clock_time_t *) &rx_msg[2];
-      int sleep_time = 500 - *time + ((node_id % 100) * 2);
+      int sleep_time = SNIFF_INTERVAL - 4 - *time + ((node_id % 100) * 2);
       etimer_set(&et, sleep_time);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_writetxdata(sizeof(payload), payload, 0);
