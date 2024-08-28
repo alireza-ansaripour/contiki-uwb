@@ -37,10 +37,10 @@
 #include <stdio.h>
 #include "dw1000.h"
 #include "dw1000-ranging.h"
-#include "sys/node-id.h"
+// #include "sys/node-id.h"
 #include "nrf.h"
-#include <sys/node-id.h>
-#include "core/net/linkaddr.h"
+// #include <sys/node-id.h>
+// #include "core/net/linkaddr.h"
 
 
 
@@ -130,7 +130,7 @@ typedef enum{
 #define PAC                             DWT_PAC8
 #define SNIFF_INTERVAL                  500
 #define RAPID_SNIFF_INTERVAL            50
-#define P2_TO_THRESH                    150 // <- change this
+#define P2_TO_THRESH                    500 // <- change this
 #define CLS_TO_THRESH                   500
 #define CCA_EN                          0
 #define TS_MODE                         0
@@ -270,14 +270,12 @@ PROCESS_THREAD(range_process, ev, data)
   // deployment_print_id_info();
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
   dwt_forcetrxoff();
   dwt_setpreambledetecttimeout(PDTO);  
   payload[2] = node_id;
   clock_init();
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
   detection_status = RX_WAK_P1;
-  
 
   while (1){
     etimer_set(&et, 1);
