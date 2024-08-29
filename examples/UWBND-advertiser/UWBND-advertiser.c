@@ -200,7 +200,7 @@ PROCESS_THREAD(range_process, ev, data)
     printf("Failed to set nodeID\n");
   }
 
-  printf("STARTING advertiser %d, RAPID_SNIFF_INT %d, WAC_TO %d\n", SNIFF_INTERVAL, RAPID_SNIFF_INTERVAL, P2_TO_THRESH);
+  printf("STARTING reliability EXP2: SNIFF_INTERVAL %d, RAPID_SNIFF_INT %d, WAC_TO %d\n", SNIFF_INTERVAL, RAPID_SNIFF_INTERVAL, P2_TO_THRESH);
   // deployment_print_id_info();
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
@@ -273,11 +273,11 @@ PROCESS_THREAD(range_process, ev, data)
       
       dwt_forcetrxoff();
       dwt_rxreset();
-      etimer_set(&et, RAPID_SNIFF_INTERVAL - 6);
+      etimer_set(&et, RAPID_SNIFF_INTERVAL - 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       P2_timeout += RAPID_SNIFF_INTERVAL;
-      etimer_set(&et, 5);
+      etimer_set(&et, 10);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       if (detection_status == RX_WAK_P2 &&  P2_timeout > P2_TO_THRESH){
         dwt_forcetrxoff();
@@ -298,7 +298,7 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_configure(&config);
       
       
-      etimer_set(&et, RAPID_SNIFF_INTERVAL + 2);
+      etimer_set(&et, RAPID_SNIFF_INTERVAL + 20);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
 #if (CCA_EN == 1)
       detection_status = CCA;

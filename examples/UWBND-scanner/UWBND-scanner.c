@@ -68,7 +68,7 @@ typedef enum{
 /*---------------------------------------------------------------------------*/
 
 #define WaC1_LEN_MS      505
-#define WaC2_LEN_MS      52   
+#define WaC2_LEN_MS      60   
 #define LISTEN_LEN_MS    100
 #define TS_MSG           0
 
@@ -163,7 +163,7 @@ PROCESS_THREAD(range_process, ev, data)
    clock_init();
   dwt_writetxdata(sizeof(msg), msg, 0);
   dwt_writetxfctrl(sizeof(msg), 0, 0);
-  printf("Starting scanner with WaC2: %d, SCAN_INTERVAL %d\n", WaC2_LEN_MS, SCAN_INTERVAL);
+  printf("Starting scanner with WaC22: %d, SCAN_INTERVAL %d\n", WaC2_LEN_MS, SCAN_INTERVAL);
   dwt_setpreambledetecttimeout(0);
   index_cnt = 0;
 
