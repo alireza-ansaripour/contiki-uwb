@@ -73,7 +73,7 @@ typedef enum{
 #define TS_MSG           0
 
 #define WAC2_PC          1
-#define SCAN_INTERVAL    5
+#define SCAN_INTERVAL    2
 
 /*---------------------------------------------------------------------------*/
 
