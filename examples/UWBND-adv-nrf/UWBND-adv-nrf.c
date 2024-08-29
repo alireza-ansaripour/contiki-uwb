@@ -130,7 +130,7 @@ typedef enum{
 #define PAC                             DWT_PAC8
 #define SNIFF_INTERVAL                  500
 #define RAPID_SNIFF_INTERVAL            50
-#define P2_TO_THRESH                    500 // <- change this
+#define P2_TO_THRESH                    150 // <- change this
 #define CLS_TO_THRESH                   500
 #define CCA_EN                          0
 #define TS_MODE                         0

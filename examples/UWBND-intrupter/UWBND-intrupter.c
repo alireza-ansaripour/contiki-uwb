@@ -49,11 +49,77 @@
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
+
+
+uint16_t get_node_addr(){
+  uint16_t node_id;
+  uint32_t dev_id = NRF_FICR->DEVICEADDR[0];
+  switch (dev_id){
+    case 0x5270f477:
+      node_id = 166;
+      break;
+
+    case 0x752a0381:
+      node_id = 161;
+      break;
+    
+    case 0x81984018:
+      node_id = 165;
+      break;
+    
+    case 0x5c50e9de:
+      node_id = 168;
+      break;
+    
+    case 0xaaf5c764:
+      node_id = 162;
+      break;
+    
+    case 0x4ed6a168:
+      node_id = 170;
+      break;
+
+    case 0x25571c0e:
+      node_id = 167;
+      break;
+
+    case 0x723ee061:
+      node_id = 163;
+      break;
+    
+    case 0xda82e887:
+      node_id = 169;
+      break;
+
+    case 0x7605ae4e:
+      node_id = 173;
+      break;
+    
+
+    case 0x2510ed2a:
+      node_id = 172;
+      break;
+    
+    case 0x685c382a:
+      node_id = 164;
+      break;
+
+    case 0xabe717f8:
+      node_id = 171;
+      break;
+  };
+
+  return node_id;
+
+}
+
+
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
-#define TX_INTERVAL 100
+#define TX_INTERVAL 12
 
 uint8_t payload[3];
+uint16_t node_id;
 int tx_cnt = 0;
 
 dwt_config_t config = {
@@ -121,17 +187,14 @@ PROCESS_THREAD(range_process, ev, data)
   static struct etimer et;
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
 
-  if(deployment_set_node_id_ieee_addr()){
-    printf("NODE addr set successfully: %d\n", node_id);
-  }else{
-    printf("Failed to set nodeID\n");
-  }
 
   clock_init();
-
+  node_id = get_node_addr();
   switch(node_id){
     case 58:
     case 13:
+    case 166:
+      printf("HERE\n");
       config.prf = DWT_PRF_16M;
       config.txCode = 1;
     break;
