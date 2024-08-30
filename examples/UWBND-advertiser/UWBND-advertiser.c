@@ -357,7 +357,7 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_rxreset();
       dwt_setpreambledetecttimeout(PDTO);
       // dwt_setdelayedtrxtime(reply_sniff_timestamp);
-      printf("reply result %d\n", dwt_rxenable(DWT_START_RX_IMMEDIATE) == DWT_SUCCESS);
+      // printf("reply result %d\n", dwt_rxenable(DWT_START_RX_IMMEDIATE) == DWT_SUCCESS);
       
       etimer_set(&et, 10);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));

@@ -105,9 +105,7 @@ uint16_t get_node_addr(){
   return node_id;
 
 }
-
-
-
+uint16_t node_id;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
@@ -167,14 +165,18 @@ bool config_change = false;
 int cca_timer = 0;
 int back_off = 0;
 int tot_sniffs = 0;
+int sniff_cnt = 0;
 int wac1_sniffs = 0;
 int tot_wac1_scan = 0;
 clock_time_t sniff1_start_time, WaC1_detection_time, to_tim; 
 int wac1_sniff_inteval = SNIFF_INTERVAL;
-uint16_t node_id;
+
+uint32_t tx_timestamp, reply_sniff_timestamp;
 /*---------------------------------------------------------------------------*/
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
+  tx_timestamp = dwt_readtxtimestamphi32();
+  printf("TX: %d, %d, %d\n", node_id, 0, tot_sniffs); 
 }
 
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
@@ -194,7 +196,7 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
     break;
   
   case WAITING_FOR_RPLY:
-    printf("bad backet RX\n");
+    printf(" ------------- REPLY -------------\n");
     break;
   
 
@@ -259,14 +261,15 @@ PROCESS_THREAD(range_process, ev, data)
   static struct etimer et;
   static struct etimer timeout;
   static int status;
-  static int sniff_cnt = 0;
+  
+  
 
   PROCESS_BEGIN();
   static struct etimer et;
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
   node_id = get_node_addr();
 
-  printf("STARTING advertiser %d, RAPID_SNIFF_INT %d, WAC_TO %d\n", SNIFF_INTERVAL, RAPID_SNIFF_INTERVAL, P2_TO_THRESH);
+  printf("STARTING reliability EXP2: SNIFF_INTERVAL %d, RAPID_SNIFF_INT %d, WAC_TO %d, %d\n", SNIFF_INTERVAL, RAPID_SNIFF_INTERVAL, P2_TO_THRESH, PDTO);
   // deployment_print_id_info();
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
@@ -283,7 +286,7 @@ PROCESS_THREAD(range_process, ev, data)
     etimer_set(&et, 1);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     if (detection_status == RX_WAK_P1){
-      config_change = false;
+      config_change = true;
       if (config.rxCode != 9){
         config_change = true;
         config.rxCode = 9;
@@ -300,14 +303,15 @@ PROCESS_THREAD(range_process, ev, data)
       if (config_change){
         dwt_configure(&config);
       }
-      dwt_forcetrxoff();
-      dwt_rxreset();
+
       
-      etimer_set(&et, wac1_sniff_inteval - 6);
+      etimer_set(&et, wac1_sniff_inteval - 11);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       sniff1_start_time = clock_time();
+      dwt_forcetrxoff();
+      dwt_rxreset();
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 5);
+      etimer_set(&et, 10);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       wac1_sniff_inteval = SNIFF_INTERVAL;
       P2_timeout = 0;
@@ -339,11 +343,11 @@ PROCESS_THREAD(range_process, ev, data)
       
       dwt_forcetrxoff();
       dwt_rxreset();
-      etimer_set(&et, RAPID_SNIFF_INTERVAL - 6);
+      etimer_set(&et, RAPID_SNIFF_INTERVAL - 11);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       P2_timeout += RAPID_SNIFF_INTERVAL;
-      etimer_set(&et, 5);
+      etimer_set(&et, 10);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       if (detection_status == RX_WAK_P2 &&  P2_timeout > P2_TO_THRESH){
         dwt_forcetrxoff();
@@ -351,7 +355,7 @@ PROCESS_THREAD(range_process, ev, data)
         detection_status = RX_WAK_P1;
         to_tim = clock_time();
         printf("TO %d, %d, %d\n", sniff_cnt, tot_sniffs, to_tim - WaC1_detection_time);
-        wac1_sniff_inteval = 7;
+        wac1_sniff_inteval = 13;
       }
       sniff_cnt += 1;
       tot_sniffs++;
@@ -364,7 +368,7 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_configure(&config);
       
       
-      etimer_set(&et, RAPID_SNIFF_INTERVAL + 2);
+      etimer_set(&et, RAPID_SNIFF_INTERVAL + 20);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
 #if (CCA_EN == 1)
       detection_status = CCA;
@@ -389,26 +393,43 @@ PROCESS_THREAD(range_process, ev, data)
       config.rxPAC = PAC;
       config.prf = DWT_PRF_64M;
       config.rxCode = 9;
-      config.sfdTO = 200;
+      config.sfdTO = 8000;
       dwt_configure(&config);
       dwt_forcetrxoff();
       dwt_writetxdata(sizeof(payload), payload, 0);
       dwt_writetxfctrl(sizeof(payload), 0, 0);
-      printf("TX: %d, %d, %d\n", node_id, sniff_cnt, tot_sniffs);
+      
       if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
         printf("TX ERR\n");
 
         printf("oh no\n");
       }
-      etimer_set(&et, 10);
+
+      tot_sniffs ++;
+      
+
+      
+      etimer_set(&et,6);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
+      
+      // reply_sniff_timestamp = tx_timestamp + (5000 * UUS_TO_DWT_TIME) >> 8;
       detection_status = WAITING_FOR_RPLY;
       dwt_forcetrxoff();
+      dwt_rxreset();
       dwt_setpreambledetecttimeout(PDTO);
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      // dwt_setdelayedtrxtime(reply_sniff_timestamp);
+      printf("reply result %d\n", dwt_rxenable(DWT_START_RX_IMMEDIATE) == DWT_SUCCESS);
+      
       etimer_set(&et, 10);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      
       detection_status = RX_WAK_P1;
+      wac1_sniff_inteval = SNIFF_INTERVAL;
+      dwt_forcetrxoff();
+      dwt_setpreambledetecttimeout(PDTO);
+      etimer_set(&et, 100);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
     }
 
   }

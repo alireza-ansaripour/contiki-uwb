@@ -70,11 +70,11 @@ typedef enum{
 
 #define WaC1_LEN_MS      505
 #define WaC2_LEN_MS      60   
-#define LISTEN_LEN_MS    500
+#define LISTEN_LEN_MS    65
 #define TS_MSG           0
 
 #define WAC2_PC          1
-#define SCAN_INTERVAL    5
+#define SCAN_INTERVAL    2
 
 /*---------------------------------------------------------------------------*/
 
@@ -249,7 +249,8 @@ PROCESS_THREAD(range_process, ev, data)
     }
     printf("\n");
     printf("Error cnt: %d\n", error_cnt);
-    unsigned short r = random_rand();
+    
+
     etimer_set(&et, (SCAN_INTERVAL * 1000) - (scan_end_time - scan_init_time));
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
   }
