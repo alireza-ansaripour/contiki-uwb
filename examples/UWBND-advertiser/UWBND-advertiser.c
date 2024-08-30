@@ -42,7 +42,9 @@
 #include "core/net/linkaddr.h"
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
-AUTOSTART_PROCESSES(&range_process);
+PROCESS(cnt_sniff_counter, "Test range process");
+AUTOSTART_PROCESSES(&range_process, &cnt_sniff_counter);
+
 #define UUS_TO_DWT_TIME     65536
 /*---------------------------------------------------------------------------*/
 typedef enum{
@@ -110,7 +112,7 @@ uint32_t tx_timestamp, reply_sniff_timestamp;
 
 void tx_ok_cb(const dwt_cb_data_t *cb_data){
   tx_timestamp = dwt_readtxtimestamphi32();
-  printf("TX: %d, %d, %d\n", node_id, 0, tot_sniffs); 
+  printf("TX: %d, %d, %d\n", node_id, sniff_cnt, tot_sniffs); 
 }
 
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
@@ -189,6 +191,23 @@ void rx_to_cb(const dwt_cb_data_t *cb_data){
   }
 }
 /*---------------------------------------------------------------------------*/
+
+
+
+
+PROCESS_THREAD(cnt_sniff_counter, ev, data){
+  static struct etimer et;
+  PROCESS_BEGIN();
+  while(1){
+    etimer_set(&et, CLOCK_SECOND);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    printf("SNIFF INFO: TOTAL %d, WAC1 %d\n", tot_sniffs, tot_wac1_scan);
+  }
+  PROCESS_END();
+}
+
+
+
 
 PROCESS_THREAD(range_process, ev, data)
 {

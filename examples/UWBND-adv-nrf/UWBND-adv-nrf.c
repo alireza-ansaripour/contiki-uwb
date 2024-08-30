@@ -109,7 +109,9 @@ uint16_t node_id;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
-AUTOSTART_PROCESSES(&range_process);
+PROCESS(cnt_sniff_counter, "Test range process");
+AUTOSTART_PROCESSES(&range_process, &cnt_sniff_counter);
+
 /*---------------------------------------------------------------------------*/
 typedef enum{
   RX_WAK_P1 = 0,
@@ -170,7 +172,7 @@ int wac1_sniffs = 0;
 int tot_wac1_scan = 0;
 clock_time_t sniff1_start_time, WaC1_detection_time, to_tim; 
 int wac1_sniff_inteval = SNIFF_INTERVAL;
-
+clock_time_t last_sniff_info = 0;
 uint32_t tx_timestamp, reply_sniff_timestamp;
 /*---------------------------------------------------------------------------*/
 
@@ -256,6 +258,18 @@ void rx_to_cb(const dwt_cb_data_t *cb_data){
 }
 /*---------------------------------------------------------------------------*/
 
+PROCESS_THREAD(cnt_sniff_counter, ev, data){
+  static struct etimer et;
+  PROCESS_BEGIN();
+  while(1){
+    etimer_set(&et, CLOCK_SECOND);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    printf("SNIFF INFO: TOTAL %d, WAC1 %d\n", tot_sniffs, tot_wac1_scan);
+  }
+  PROCESS_END();
+}
+
+
 PROCESS_THREAD(range_process, ev, data)
 {
   static struct etimer et;
@@ -280,11 +294,15 @@ PROCESS_THREAD(range_process, ev, data)
   clock_init();
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
   detection_status = RX_WAK_P1;
-  
+  last_sniff_info = clock_time();
 
   while (1){
     etimer_set(&et, 1);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    if (clock_time() - last_sniff_info >= 1000){
+      
+      last_sniff_info = clock_time();
+    }
     if (detection_status == RX_WAK_P1){
       config_change = true;
       if (config.rxCode != 9){

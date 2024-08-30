@@ -74,7 +74,7 @@ typedef enum{
 #define TS_MSG           0
 
 #define WAC2_PC          1
-#define SCAN_INTERVAL    2
+#define SCAN_INTERVAL    100
 
 /*---------------------------------------------------------------------------*/
 
@@ -131,7 +131,7 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
     adv_rx_time = dwt_readrxtimestamphi32();
     uint16_t *n_id = (uint16_t *) &payload[2];
     report.ids[index_cnt++] = *n_id;
-    detection_status = SEND_RPLY;
+    // detection_status = SEND_RPLY;
   }
 }
 
