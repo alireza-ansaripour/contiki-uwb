@@ -49,6 +49,7 @@
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
+#define UUS_TO_DWT_TIME     65536
 
 
 struct Scan_report{
@@ -61,19 +62,19 @@ typedef enum{
   CCA_2,
   WAK_1,
   WAK_2,
-  TS,
-  LISTEN
+  SEND_RPLY,
+  LISTENING,
 }DETECTION_STATUS;
 
 /*---------------------------------------------------------------------------*/
 
 #define WaC1_LEN_MS      505
 #define WaC2_LEN_MS      60   
-#define LISTEN_LEN_MS    100
+#define LISTEN_LEN_MS    500
 #define TS_MSG           0
 
 #define WAC2_PC          1
-#define SCAN_INTERVAL    2
+#define SCAN_INTERVAL    5
 
 /*---------------------------------------------------------------------------*/
 
@@ -86,6 +87,9 @@ static struct Scan_report report;
 DETECTION_STATUS detection_status = CCA_1;
 uint32_t WaC_start_time, WaC_current_time;
 clock_time_t scan_init_time, scan_end_time;
+
+clock_time_t listen_begin_time, listen_end_time;
+uint32_t adv_rx_time, rep_tx_time;
 
 dwt_config_t config = {
     1, /* Channel number. */
@@ -117,9 +121,6 @@ void tx_ok_cb(const dwt_cb_data_t *cb_data){
     dwt_writetxfctrl(sizeof(msg), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
   }
-  if(detection_status == TS){
-    printf("TX Done\n");
-  }
 }
 
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
@@ -127,9 +128,10 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   dwt_readrxdata(payload, cb_data->datalength, 0);
   if (payload[0] == 0xad){
-
+    adv_rx_time = dwt_readrxtimestamphi32();
     uint16_t *n_id = (uint16_t *) &payload[2];
     report.ids[index_cnt++] = *n_id;
+    detection_status = SEND_RPLY;
   }
 }
 
@@ -185,6 +187,7 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_forcetrxoff();
     dwt_rxreset();
     index_cnt = 0;
+    
     /* ----------------------- Changing to WaC2 -------------------------------------*/
     printf("changing config\n");
     config.prf = DWT_PRF_16M;
@@ -205,13 +208,42 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_configure(&config);
     error_cnt = 0;
     dwt_forcetrxoff();
-    dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    printf("Listening\n");
-    etimer_set(&et, LISTEN_LEN_MS);
+    listen_begin_time = clock_time();
+    detection_status = LISTENING;
+
+    ;
+    printf("Listening %d\n", dwt_rxenable(DWT_START_RX_IMMEDIATE) == DWT_SUCCESS);
+    
+
+    while (detection_status == LISTENING){
+      etimer_set(&et, 1);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));  
+      listen_end_time = clock_time();
+      if (listen_end_time - listen_begin_time >= LISTEN_LEN_MS){
+        printf("LISTEN TO\n");
+        break;
+      }
+    }
+
+    etimer_set(&et, 3);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     
+    msg[0] = 0xEF;
+    dwt_forcetrxoff();
+    if (detection_status == SEND_RPLY){
+      dwt_writetxdata(sizeof(msg), msg, 0);
+      dwt_writetxfctrl(sizeof(msg), 0, 0);
+      // rep_tx_time = adv_rx_time + (4000 * UUS_TO_DWT_TIME) >> 8;
+      // dwt_setdelayedtrxtime(rep_tx_time);
+      printf("sending REP %d\n", dwt_starttx(DWT_START_TX_IMMEDIATE) == DWT_SUCCESS);
+    }
+    
+    etimer_set(&et, 6);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    
+
     scan_end_time = clock_time();
-    printf("Report T:%d: %d -> ", scan_end_time - scan_init_time, index_cnt);
+    printf("Report T:%d, %d: %d -> ", detection_status, scan_end_time - scan_init_time, index_cnt);
     for (int i = 0; i < index_cnt; i++){
       printf("%d, ", report.ids[i]);
     }
