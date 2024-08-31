@@ -316,10 +316,11 @@ PROCESS_THREAD(range_process, ev, data)
   
 
   while (1){
+    dw1000_sleep();
     etimer_set(&et, 1);
+    dw1000_wakeup();
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     if (detection_status == RX_WAK_P1){
-      dwt_init();
       config_change = true;
       if (config.rxCode != 9){
         config_change = true;
