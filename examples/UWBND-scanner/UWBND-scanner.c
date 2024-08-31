@@ -175,6 +175,7 @@ PROCESS_THREAD(range_process, ev, data)
   while (1){
     index_cnt = 0;
     current_time = clock_time();
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
     while (status == 1){
       etimer_set(&et, 1);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));

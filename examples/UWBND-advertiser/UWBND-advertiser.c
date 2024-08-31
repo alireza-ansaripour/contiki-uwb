@@ -137,7 +137,7 @@ PROCESS_THREAD(range_process, ev, data)
   }
   
   
-  T_ADV = 100;
+  T_ADV = 490;
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff(); 
