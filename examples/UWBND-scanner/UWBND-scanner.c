@@ -111,7 +111,10 @@ void tx_ok_cb(const dwt_cb_data_t *cb_data){
 
 PROCESS(send_adv, "Test range process");
 PROCESS_THREAD(send_adv, ev, data){
+  static struct etimer et;
   PROCESS_BEGIN();
+  etimer_set(&et, 9);
+  PROCESS_WAIT_UNTIL(etimer_expired(&et));
   printf("send adv message\n");
   dwt_forcetrxoff();
   PROCESS_END();
