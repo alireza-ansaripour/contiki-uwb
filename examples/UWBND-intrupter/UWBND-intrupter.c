@@ -140,7 +140,7 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
-
+  payload[0] = 0xff;
   dwt_writetxdata(sizeof(payload), payload, 0);
   dwt_writetxfctrl(sizeof(payload), 0, 0);
   printf("Starting Interupter %d\n", TX_INTERVAL);
