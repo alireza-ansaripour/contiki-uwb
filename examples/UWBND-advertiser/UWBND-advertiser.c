@@ -70,7 +70,7 @@ typedef enum{
 dwt_config_t config = {
     3, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
-    DWT_PLEN_64, /* Preamble length. Used in TX only. */
+    DWT_PLEN_128, /* Preamble length. Used in TX only. */
     PAC, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
@@ -145,6 +145,7 @@ PROCESS_THREAD(range_process, ev, data)
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
   dwt_writetxdata(sizeof(payload), (uint8_t *) payload, 0);
   printf("Start advertiser wit T_ADV: %d\n", T_ADV);
+  dwt_setpreambledetecttimeout(3);
   while (1){
     etimer_set(&et, T_ADV - 20);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
@@ -154,7 +155,7 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_forcetrxoff();
     etimer_set(&et, 10);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    dwt_setpreambledetecttimeout(3);
+    
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     etimer_set(&et, 10);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));

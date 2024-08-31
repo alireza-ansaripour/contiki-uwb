@@ -77,14 +77,12 @@ typedef enum{
 
 uint8_t payload[10];
 uint8_t msg[7] = {0xbe, 0, 0, 0, 0, 0, 0};
-uint8_t reply[7] = {0xef, 0, 0, 0, 0, 0, 0};
 uint8_t stop_trans = 0;
 static int index_cnt = 0;
 static struct Scan_report report;
 DETECTION_STATUS detection_status = CCA_1;
 uint32_t WaC_start_time, WaC_current_time;
 int T_SCAN, T_INT;
-int status = 1;
 
 dwt_config_t config = {
     3, /* Channel number. */
@@ -111,6 +109,15 @@ void tx_ok_cb(const dwt_cb_data_t *cb_data){
   
 }
 
+PROCESS(send_adv, "Test range process");
+PROCESS_THREAD(send_adv, ev, data){
+  PROCESS_BEGIN();
+  printf("send adv message\n");
+  dwt_forcetrxoff();
+  PROCESS_END();
+}
+
+
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
@@ -126,10 +133,7 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
     if (add){
       report.ids[index_cnt++] = *n_id;
       printf("found %d\n", *n_id);
-      dwt_forcetrxoff();
-      dwt_writetxdata(sizeof(reply), reply, 0);
-      dwt_writetxfctrl(sizeof(reply), 0, 0);
-      
+      process_start(&send_adv, NULL);
     }
       
   }
@@ -139,7 +143,7 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
 void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
-  // printf("TX OK Sender\n");
+  printf("ERR\n");
 }
 
 
@@ -151,38 +155,29 @@ PROCESS_THREAD(range_process, ev, data)
   static struct etimer et;
   static struct etimer timeout;
   static int status;
-  clock_time_t start_scan, current_time;
 
   PROCESS_BEGIN();
   static struct etimer et;
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
-  etimer_set(&et, CLOCK_SECOND );
+  etimer_set(&et, CLOCK_SECOND * 9);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   
   dwt_setsniffmode(1, SNIFF_ON_TIME, SNIFF_OFF_TIME);
-  clock_init();
+  
   dwt_forcetrxoff();
 
   T_SCAN = 500;
   T_INT  = 1000;
 
   printf("Starting Scanner with: T_ADV = %d, & T_INT = %d\n", T_SCAN, T_INT);
-  dwt_rxenable(DWT_START_RX_IMMEDIATE);
-  start_scan = clock_time();
 
   while (1){
     index_cnt = 0;
-    current_time = clock_time();
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    while (status == 1){
-      etimer_set(&et, 1);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      if (current_time - start_scan >= T_SCAN ){
-        break;
-      }
-    }
+    etimer_set(&et, T_SCAN);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));    
     dwt_forcetrxoff();
     printf("b'Report: %d -> ", index_cnt);
     for (int i =0 ; i< index_cnt; i++){
