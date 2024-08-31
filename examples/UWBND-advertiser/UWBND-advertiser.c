@@ -77,7 +77,7 @@ dwt_config_t config = {
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
     DWT_BR_6M8, /* Data rate. */
     DWT_PHRMODE_STD, /* PHY header mode. */
-    (SFD_TO) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
+    (8000) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
 };
 
 
@@ -101,6 +101,7 @@ void tx_ok_cb(const dwt_cb_data_t *cb_data){
 
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_readrxdata(rx_payload, cb_data->datalength, 0);
+  printf("__________________ REPLY ___________________\n");
   dwt_forcetrxoff();
   dwt_rxreset();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);  
@@ -145,11 +146,19 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_writetxdata(sizeof(payload), (uint8_t *) payload, 0);
   printf("Start advertiser wit T_ADV: %d\n", T_ADV);
   while (1){
-    etimer_set(&et, T_ADV);
+    etimer_set(&et, T_ADV - 20);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     dwt_writetxfctrl(sizeof(payload), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
     printf("ADV sent\n");
+    dwt_forcetrxoff();
+    etimer_set(&et, 10);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    dwt_setpreambledetecttimeout(3);
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    etimer_set(&et, 10);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    
   }
   
   PROCESS_END();
