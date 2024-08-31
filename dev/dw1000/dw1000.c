@@ -253,7 +253,6 @@ dw1000_init(void)
 
   /* Set the DW1000 ISR */
   dw1000_set_isr(dwt_isr);
-	printf("HEREEEEEEEEEEEEE\n");
   /* Register TX/RX callbacks. */
   dwt_setcallbacks(&tx_conf_cb, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
   /* Enable wanted interrupts (TX confirmation, RX good frames, RX timeouts and RX errors). */
