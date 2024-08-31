@@ -131,7 +131,12 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
     break;
   
   case WAITING_FOR_RPLY:
-    printf(" ------------- REPLY -------------\n");
+    if (rx_payload[0] == 0xef){
+      printf(" ------------- REPLY -------------\n");
+    }else{
+      printf(" ------------- FALSE-REPLY -------------\n");
+    }
+      
     break;
   
 
