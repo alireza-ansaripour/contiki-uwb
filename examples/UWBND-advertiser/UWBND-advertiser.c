@@ -116,6 +116,7 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
 
 
 void rx_to_cb(const dwt_cb_data_t *cb_data){
+  printf("no essage\n");
   dwt_forcetrxoff();
 }
 /*---------------------------------------------------------------------------*/
@@ -159,6 +160,7 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     etimer_set(&et, 10);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    dwt_forcetrxoff();
     
   }
   

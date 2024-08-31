@@ -163,9 +163,6 @@ PROCESS_THREAD(range_process, ev, data)
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
-  
-  dwt_setsniffmode(1, SNIFF_ON_TIME, SNIFF_OFF_TIME);
-  
   dwt_forcetrxoff();
 
   T_SCAN = 500;
