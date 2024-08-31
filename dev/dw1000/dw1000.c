@@ -259,7 +259,6 @@ dw1000_init(void)
   dwt_setinterrupt(DWT_INT_TFRS | DWT_INT_RFCG | DWT_INT_RFTO | DWT_INT_RXPTO |
                    DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
                    DWT_INT_ARFE, 1);
-
 #if DW1000_RANGING_ENABLED
   dw1000_ranging_init();
 #endif

@@ -127,6 +127,7 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   dwt_readrxdata(payload, cb_data->datalength, 0);
+  printf("ok\n");
   if (payload[0] == 0xad){
     adv_rx_time = dwt_readrxtimestamphi32();
     uint16_t *n_id = (uint16_t *) &payload[2];
@@ -162,7 +163,7 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
-   clock_init();
+  clock_init();
   dwt_writetxdata(sizeof(msg), msg, 0);
   dwt_writetxfctrl(sizeof(msg), 0, 0);
   printf("Starting scanner with WaC22: %d, SCAN_INTERVAL %d\n", WaC2_LEN_MS, SCAN_INTERVAL);

@@ -37,9 +37,7 @@
 #include <stdio.h>
 #include "dw1000.h"
 #include "dw1000-ranging.h"
-#include "sys/node-id.h"
 #include "nrf.h"
-#include <sys/node-id.h>
 #include "core/net/linkaddr.h"
 
 
@@ -185,6 +183,7 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_readrxdata(rx_payload, cb_data->datalength, 0);
   dwt_forcetrxoff();
   dwt_rxreset();
+  // dw1000_sleep();
   switch (detection_status){
   case RX_WAK_P1:
     detection_status = RX_WAK_P2;
@@ -212,6 +211,7 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
 void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxreset();
+  // dw1000_sleep();
   switch (detection_status){
   case RX_WAK_P1:
     detection_status = RX_WAK_P2;
@@ -244,6 +244,7 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
 
 void rx_to_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
+  // dw1000_sleep();
   to_counter++;
   switch (detection_status){
   case RX_WAK_P2:
@@ -267,25 +268,12 @@ PROCESS_THREAD(report_stat, ev, data){
   while (1){
     etimer_set(&et, CLOCK_SECOND);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    printf("NODE STAT: TOT sniff cnt: %d, WaC1 sniffs: %d, 0x%x\n", tot_sniffs, wac1_sniffs, to_counter);
+    printf("NODE STAT: TOT sniff cnt: %d, WaC1 sniffs: %d, %d\n", tot_sniffs, wac1_sniffs, to_counter);
   }
   PROCESS_END();
 }
 
-void dwt_init(){
-  dw1000_arch_init();
-  dw1000_reset_cfg();
 
-dw1000_set_isr(dwt_isr);
-  /* Register TX/RX callbacks. */
-  dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
-  /* Enable wanted interrupts (TX confirmation, RX good frames, RX timeouts and RX errors). */
-  dwt_setinterrupt(DWT_INT_TFRS | DWT_INT_RFCG | DWT_INT_RFTO | DWT_INT_RXPTO |
-                   DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
-                   DWT_INT_ARFE, 1);
-
-  
-}
 
 
 
@@ -302,24 +290,27 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
   node_id = get_node_addr();
 
-  printf("STARTING reliability EXP2: SNIFF_INTERVAL %d, RAPID_SNIFF_INT %d, WAC_TO %d, %d\n", SNIFF_INTERVAL, RAPID_SNIFF_INTERVAL, P2_TO_THRESH, PDTO);
-  // deployment_print_id_info();
+  printf("STARTING  EXP2: SNIFF_INTERVAL %d, RAPID_SNIFF_INT %d, WAC_TO %d, %d\n", SNIFF_INTERVAL, RAPID_SNIFF_INTERVAL, P2_TO_THRESH, PDTO);
+  // dwt_init();
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
   dwt_forcetrxoff();
-  dwt_setpreambledetecttimeout(PDTO);  
+  dwt_setpreambledetecttimeout(PDTO);
+  
+  
+  // deployment_print_id_info();  
   payload[2] = node_id;
   clock_init();
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
   detection_status = RX_WAK_P1;
   
-
+  
   while (1){
     etimer_set(&et, 1);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    // dw1000_wakeup();
     if (detection_status == RX_WAK_P1){
-      dwt_init();
+      
       config_change = true;
       if (config.rxCode != 9){
         config_change = true;
@@ -358,7 +349,7 @@ PROCESS_THREAD(range_process, ev, data)
       tot_wac1_scan++;
     }
     if (detection_status == RX_WAK_P2){
-      config_change = false;
+      config_change = true;
       if (config.rxCode != WAC2_PC){
         config_change = true;
         config.rxCode = WAC2_PC;
@@ -373,12 +364,16 @@ PROCESS_THREAD(range_process, ev, data)
         config.sfdTO = SFD_TO;
       }
       if (config_change){
-        dwt_configure(&config);
+        
       }
       
+      
+      etimer_set(&et, RAPID_SNIFF_INTERVAL - 15);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
       dwt_rxreset();
-      etimer_set(&et, RAPID_SNIFF_INTERVAL - 11);
+      dwt_configure(&config);
+      etimer_set(&et, 4);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       P2_timeout += RAPID_SNIFF_INTERVAL;
@@ -463,6 +458,7 @@ PROCESS_THREAD(range_process, ev, data)
       wac1_sniff_inteval = SNIFF_INTERVAL;
       dwt_forcetrxoff();
       dwt_setpreambledetecttimeout(PDTO);
+      // dw1000_sleep();
       etimer_set(&et, 10);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
     }
