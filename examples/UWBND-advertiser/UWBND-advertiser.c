@@ -62,7 +62,7 @@ typedef enum{
 #define PAC                             DWT_PAC8
 #define SNIFF_INTERVAL                  500
 #define RAPID_SNIFF_INTERVAL            50
-#define P2_TO_THRESH                    150 // <- change this
+#define P2_TO_THRESH                    550 // <- change this
 #define CLS_TO_THRESH                   500
 #define CCA_EN                          0
 #define TS_MODE                         0
@@ -238,17 +238,20 @@ PROCESS_THREAD(range_process, ev, data)
         config_change = true;
         config.sfdTO = SFD_TO;
       }
-      if (config_change){
-        dwt_configure(&config);
-      }
+      
 
       
       etimer_set(&et, wac1_sniff_inteval - 11);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       sniff1_start_time = clock_time();
+      if (config_change){
+        dwt_configure(&config);
+      }
       dwt_forcetrxoff();
       dwt_rxreset();
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      if(dwt_rxenable(DWT_START_RX_IMMEDIATE) != DWT_SUCCESS){
+        printf("gholi\n");
+      }
       etimer_set(&et, 10);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       wac1_sniff_inteval = SNIFF_INTERVAL;
@@ -293,7 +296,7 @@ PROCESS_THREAD(range_process, ev, data)
         detection_status = RX_WAK_P1;
         to_tim = clock_time();
         printf("TO %d, %d, %d\n", sniff_cnt, tot_sniffs, to_tim - WaC1_detection_time);
-        wac1_sniff_inteval = 13;
+        wac1_sniff_inteval = SNIFF_INTERVAL;
       }
       sniff_cnt += 1;
       tot_sniffs++;
@@ -301,7 +304,7 @@ PROCESS_THREAD(range_process, ev, data)
     if (detection_status == WAITING){
       config.prf = DWT_PRF_64M;
       config.rxCode = 9;
-      config.rxPAC = DWT_PAC32;
+      config.rxPAC = DWT_PAC8;
       config.sfdTO = SFD_TO;
       dwt_configure(&config);
       
@@ -357,16 +360,16 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_rxreset();
       dwt_setpreambledetecttimeout(PDTO);
       // dwt_setdelayedtrxtime(reply_sniff_timestamp);
-      // printf("reply result %d\n", dwt_rxenable(DWT_START_RX_IMMEDIATE) == DWT_SUCCESS);
+      printf("reply result %d\n", dwt_rxenable(DWT_START_RX_IMMEDIATE) == DWT_SUCCESS);
       
-      etimer_set(&et, 10);
+      etimer_set(&et, 100);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       
       detection_status = RX_WAK_P1;
       wac1_sniff_inteval = SNIFF_INTERVAL;
       dwt_forcetrxoff();
       dwt_setpreambledetecttimeout(PDTO);
-      etimer_set(&et, 100);
+      etimer_set(&et, 10);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
     }
 
