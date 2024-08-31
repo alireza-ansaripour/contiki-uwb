@@ -376,6 +376,8 @@ PROCESS_THREAD(range_process, ev, data)
       config.sfdTO = 8000;
       dwt_configure(&config);
       dwt_forcetrxoff();
+      payload[0] = 0xad;
+      memcpy(&payload[2], (uint16_t *) &node_id, 2);
       dwt_writetxdata(sizeof(payload), payload, 0);
       dwt_writetxfctrl(sizeof(payload), 0, 0);
       
