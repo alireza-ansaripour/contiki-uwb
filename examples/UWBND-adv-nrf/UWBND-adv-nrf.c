@@ -445,17 +445,17 @@ PROCESS_THREAD(range_process, ev, data)
       
 
       
-      // etimer_set(&et,6);
-      // PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      etimer_set(&et,6);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
       
       // reply_sniff_timestamp = tx_timestamp + (5000 * UUS_TO_DWT_TIME) >> 8;
-      // detection_status = WAITING_FOR_RPLY;
-      // dwt_forcetrxoff();
-      // dwt_rxreset();
-      // dwt_setpreambledetecttimeout(PDTO);
-      // dwt_setdelayedtrxtime(reply_sniff_timestamp);
-      // printf("reply result %d\n", dwt_rxenable(DWT_START_RX_IMMEDIATE) == DWT_SUCCESS);
+      detection_status = WAITING_FOR_RPLY;
+      dwt_forcetrxoff();
+      dwt_rxreset();
+      dwt_setpreambledetecttimeout(PDTO);
+      dwt_setdelayedtrxtime(reply_sniff_timestamp);
+      printf("reply result %d\n", dwt_rxenable(DWT_START_RX_IMMEDIATE) == DWT_SUCCESS);
       
       etimer_set(&et, 100);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
