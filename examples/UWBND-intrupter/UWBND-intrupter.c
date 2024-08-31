@@ -130,7 +130,7 @@ PROCESS_THREAD(range_process, ev, data)
   clock_init();
 
   switch(node_id){
-    case 58:
+    case 63:
     case 13:
       config.prf = DWT_PRF_16M;
       config.txCode = 1;
