@@ -117,6 +117,9 @@ PROCESS_THREAD(send_adv, ev, data){
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
   printf("send adv message\n");
   dwt_forcetrxoff();
+  dwt_writetxdata(sizeof(msg), msg, 0);
+  dwt_writetxfctrl(sizeof(msg), 0, 0);
+  dwt_starttx(DWT_START_TX_IMMEDIATE);
   PROCESS_END();
 }
 
