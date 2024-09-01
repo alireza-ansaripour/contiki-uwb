@@ -147,13 +147,16 @@ PROCESS_THREAD(range_process, ev, data)
   printf("Start advertiser wit T_ADV: %d\n", T_ADV);
   dwt_setpreambledetecttimeout(3);
   while (1){
-    etimer_set(&et, T_ADV - 20);
+    etimer_set(&et, T_ADV - 30);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     dwt_writetxfctrl(sizeof(payload), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
     printf("ADV sent\n");
+    
+    etimer_set(&et, 2);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
     dwt_forcetrxoff();
-    etimer_set(&et, 10);
+    etimer_set(&et, 9);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     
     dwt_rxenable(DWT_START_RX_IMMEDIATE);

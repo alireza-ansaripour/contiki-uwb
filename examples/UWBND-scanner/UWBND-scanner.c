@@ -113,7 +113,7 @@ PROCESS(send_adv, "Test range process");
 PROCESS_THREAD(send_adv, ev, data){
   static struct etimer et;
   PROCESS_BEGIN();
-  etimer_set(&et, 9);
+  etimer_set(&et, 10);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
   printf("send adv message\n");
   dwt_forcetrxoff();
