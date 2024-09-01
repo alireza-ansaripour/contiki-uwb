@@ -42,6 +42,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "sys/node-id.h"
+#include "nrf.h"
 #include "net/netstack.h"
 
 #include "core/net/linkaddr.h"
@@ -216,7 +217,7 @@ PROCESS_THREAD(range_process, ev, data)
     start_time = clock_time();
     wait = (random_rand() % (TX_INTERVAL));
     wait2 = TX_INTERVAL - wait;
-    
+    payload[0] = 0xff;
     etimer_set(&et, wait); // wait for some time after the transmission
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     dwt_writetxfctrl(sizeof(payload), 0, 0);
