@@ -192,9 +192,9 @@ PROCESS_THREAD(range_process, ev, data)
   clock_init();
   node_id = get_node_addr();
   switch(node_id){
-    case 58:
-    case 13:
-    case 166:
+    case 163:
+    case 169:
+    case 171:
       config.prf = DWT_PRF_16M;
       config.txCode = 1;
     break;
@@ -217,9 +217,11 @@ PROCESS_THREAD(range_process, ev, data)
     start_time = clock_time();
     wait = (random_rand() % (TX_INTERVAL));
     wait2 = TX_INTERVAL - wait;
-    payload[0] = 0xff;
+    
     etimer_set(&et, wait); // wait for some time after the transmission
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    payload[0] = 0xff;
+    dwt_writetxdata(sizeof(payload), payload, 0);
     dwt_writetxfctrl(sizeof(payload), 0, 0);
     res = dwt_starttx(DWT_START_TX_IMMEDIATE);
     etimer_set(&et, wait2); // wait for some time after the transmission
