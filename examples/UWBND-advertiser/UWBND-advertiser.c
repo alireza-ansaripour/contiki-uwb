@@ -70,7 +70,7 @@ typedef enum{
 dwt_config_t config = {
     3, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
-    DWT_PLEN_128, /* Preamble length. Used in TX only. */
+    DWT_PLEN_64, /* Preamble length. Used in TX only. */
     PAC, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
