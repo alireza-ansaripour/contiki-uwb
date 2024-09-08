@@ -68,8 +68,8 @@ typedef enum{
 
 /*---------------------------------------------------------------------------*/
 
-#define WaC1_LEN_MS      505
-#define WaC2_LEN_MS      60   
+#define WaC1_LEN_MS      20
+#define WaC2_LEN_MS      20  
 #define LISTEN_LEN_MS    65
 #define TS_MSG           0
 
@@ -171,7 +171,7 @@ PROCESS_THREAD(range_process, ev, data)
 
   while (1){
     scan_init_time = clock_time();    
-    printf("Start sending WaK: %d\n", scan_init_time);
+    printf("Start sending WaK1: %d\n", scan_init_time);
     /* ------------------------ Sending WaC1 --------------------------------*/
     stop_trans = 0;
     dwt_forcetrxoff();
@@ -189,7 +189,8 @@ PROCESS_THREAD(range_process, ev, data)
     index_cnt = 0;
     
     /* ----------------------- Changing to WaC2 -------------------------------------*/
-    printf("changing config\n");
+    scan_init_time = clock_time();
+    printf("Start sending WaK2: %d\n", scan_init_time);
     config.prf = DWT_PRF_16M;
     config.txCode = WAC2_PC;
     dwt_configure(&config);
@@ -208,51 +209,6 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_configure(&config);
     error_cnt = 0;
     dwt_forcetrxoff();
-    listen_begin_time = clock_time();
-    detection_status = LISTENING;
-
-    ;
-    printf("Listening %d\n", dwt_rxenable(DWT_START_RX_IMMEDIATE) == DWT_SUCCESS);
-    
-
-    while (detection_status == LISTENING){
-      etimer_set(&et, 1);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));  
-      listen_end_time = clock_time();
-      if (listen_end_time - listen_begin_time >= LISTEN_LEN_MS){
-        printf("LISTEN TO\n");
-        break;
-      }
-    }
-
-    etimer_set(&et, 3);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    
-    msg[0] = 0xEF;
-    dwt_forcetrxoff();
-    if (detection_status == SEND_RPLY){
-      dwt_writetxdata(sizeof(msg), msg, 0);
-      dwt_writetxfctrl(sizeof(msg), 0, 0);
-      // rep_tx_time = adv_rx_time + (4000 * UUS_TO_DWT_TIME) >> 8;
-      // dwt_setdelayedtrxtime(rep_tx_time);
-      printf("sending REP %d\n", dwt_starttx(DWT_START_TX_IMMEDIATE) == DWT_SUCCESS);
-    }
-    
-    etimer_set(&et, 6);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    
-
-    scan_end_time = clock_time();
-    printf("Report T:%d, %d: %d -> ", detection_status, scan_end_time - scan_init_time, index_cnt);
-    for (int i = 0; i < index_cnt; i++){
-      printf("%d, ", report.ids[i]);
-    }
-    printf("\n");
-    printf("Error cnt: %d\n", error_cnt);
-    
-
-    etimer_set(&et, (SCAN_INTERVAL * 1000) - (scan_end_time - scan_init_time));
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
   }
   
 
