@@ -125,17 +125,19 @@ typedef enum{
 }DETECTION_STATUS;
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
+
+#define VALUE                           1000
 #define PDTO                            3
 #define SFD_TO                          1
 #define PAC                             DWT_PAC8
-#define SNIFF_INTERVAL                  20
-#define RAPID_SNIFF_INTERVAL            20
+#define SNIFF_INTERVAL                  VALUE
+#define RAPID_SNIFF_INTERVAL            VALUE
 #define P2_TO_THRESH                    110 // <- change this
 #define CLS_TO_THRESH                   500
 #define CCA_EN                          0
 #define TS_MODE                         0
 
-#define WAC2_PC                         1
+#define WAC2_PC                         11
 
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
@@ -172,7 +174,7 @@ int wac1_sniffs = 0;
 int tot_wac1_scan = 0;
 clock_time_t prev_sniff_time, current_time; 
 int wac1_sniff_inteval = SNIFF_INTERVAL;
-int to_counter = 0;
+int counter = 0;
 uint32_t tx_timestamp, reply_sniff_timestamp;
 /*---------------------------------------------------------------------------*/
 
@@ -194,7 +196,8 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxreset();
   current_time = clock_time();
-  printf("Channel activity detected ERR %d\n", current_time - prev_sniff_time);
+  counter++;
+  printf("Channel activity detected ERR %d, %d\n", current_time - prev_sniff_time, counter);
   prev_sniff_time = current_time;
 }
 
@@ -202,7 +205,8 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
 void rx_to_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxreset();
-  printf("No channel activity\n");
+  counter++;
+  printf("No channel activity %d\n", counter);
 }
 /*---------------------------------------------------------------------------*/
 
@@ -213,7 +217,7 @@ PROCESS_THREAD(report_stat, ev, data){
   while (1){
     etimer_set(&et, CLOCK_SECOND);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    printf("NODE STAT: TOT sniff cnt: %d, WaC1 sniffs: %d, 0x%x\n", tot_sniffs, wac1_sniffs, to_counter);
+    printf("NODE STAT: TOT sniff cnt: %d, WaC1 sniffs: %d, 0x%x\n", tot_sniffs, wac1_sniffs, 0);
   }
   PROCESS_END();
 }
@@ -247,7 +251,7 @@ PROCESS_THREAD(range_process, ev, data){
   PROCESS_BEGIN();
 
 
-  dwt_init();
+   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
   node_id = get_node_addr();
 
   printf("STARTING reliability EXP2: SNIFF_INTERVAL %d, RAPID_SNIFF_INT %d, WAC_TO %d, %d\n", SNIFF_INTERVAL, RAPID_SNIFF_INTERVAL, P2_TO_THRESH, PDTO);
@@ -303,7 +307,7 @@ PROCESS_THREAD(range_process, ev, data){
     if (config.rxCode != WAC2_PC){
       config_change = true;
       config.rxCode = WAC2_PC;
-      config.prf = DWT_PRF_16M;
+      // config.prf = DWT_PRF_16M;
     }
     if (config.rxPAC != PAC){
       config_change = true;

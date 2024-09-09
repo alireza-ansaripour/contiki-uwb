@@ -67,13 +67,13 @@ typedef enum{
 }DETECTION_STATUS;
 
 /*---------------------------------------------------------------------------*/
-
-#define WaC1_LEN_MS      20
-#define WaC2_LEN_MS      20  
+#define VALUE            1000
+#define WaC1_LEN_MS      VALUE
+#define WaC2_LEN_MS      VALUE  
 #define LISTEN_LEN_MS    65
 #define TS_MSG           0
 
-#define WAC2_PC          1
+#define WAC2_PC          11
 #define SCAN_INTERVAL    5
 
 /*---------------------------------------------------------------------------*/
@@ -146,7 +146,7 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
 
 /*-------------------------------------------------------------------*/
 
-
+int counter = 0;
 PROCESS_THREAD(range_process, ev, data)
 {
   static struct etimer et;
@@ -170,8 +170,9 @@ PROCESS_THREAD(range_process, ev, data)
   index_cnt = 0;
 
   while (1){
-    scan_init_time = clock_time();    
-    printf("Start sending WaK1: %d\n", scan_init_time);
+    scan_init_time = clock_time();
+    counter ++;    
+    printf("Start sending WaK1: %d, %d\n", scan_init_time, counter);
     /* ------------------------ Sending WaC1 --------------------------------*/
     stop_trans = 0;
     dwt_forcetrxoff();
@@ -190,8 +191,9 @@ PROCESS_THREAD(range_process, ev, data)
     
     /* ----------------------- Changing to WaC2 -------------------------------------*/
     scan_init_time = clock_time();
-    printf("Start sending WaK2: %d\n", scan_init_time);
-    config.prf = DWT_PRF_16M;
+    counter++;
+    printf("Start sending WaK2: %d, %d\n", scan_init_time, counter);
+    // config.prf = DWT_PRF_16M;
     config.txCode = WAC2_PC;
     dwt_configure(&config);
     dwt_writetxdata(sizeof(msg), msg, 0);
