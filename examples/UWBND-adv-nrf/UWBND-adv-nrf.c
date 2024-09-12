@@ -126,31 +126,20 @@ typedef enum{
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
 
-#define VALUE                           1000
-#define PDTO                            3
-#define SFD_TO                          1
-#define PAC                             DWT_PAC8
-#define SNIFF_INTERVAL                  VALUE
-#define RAPID_SNIFF_INTERVAL            VALUE
-#define P2_TO_THRESH                    110 // <- change this
-#define CLS_TO_THRESH                   500
-#define CCA_EN                          0
-#define TS_MODE                         0
-
-#define WAC2_PC                         11
+#define IPI                             10
 
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
     1, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_256, /* Preamble length. Used in TX only. */
-    PAC, /* Preamble acquisition chunk size. Used in RX only. */
+    DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
     DWT_BR_6M8, /* Data rate. */
     DWT_PHRMODE_STD, /* PHY header mode. */
-    (SFD_TO) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
+    (2) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
 };
 
 dwt_txconfig_t txConf = {
@@ -173,43 +162,9 @@ int sniff_cnt = 0;
 int wac1_sniffs = 0;
 int tot_wac1_scan = 0;
 clock_time_t prev_sniff_time, current_time; 
-int wac1_sniff_inteval = SNIFF_INTERVAL;
 int counter = 0;
 uint32_t tx_timestamp, reply_sniff_timestamp;
 /*---------------------------------------------------------------------------*/
-
-void tx_ok_cb(const dwt_cb_data_t *cb_data){
-  tx_timestamp = dwt_readtxtimestamphi32();
-  printf("TX: %d, %d, %d\n", node_id, 0, tot_sniffs); 
-}
-
-void rx_ok_cb(const dwt_cb_data_t *cb_data){
-  dwt_readrxdata(rx_payload, cb_data->datalength, 0);
-  dwt_forcetrxoff();
-  dwt_rxreset();
-  printf("Channel activity detected OK\n");
-  
-}
-
-
-void rx_err_cb(const dwt_cb_data_t *cb_data){
-  dwt_forcetrxoff();
-  dwt_rxreset();
-  current_time = clock_time();
-  counter++;
-  printf("Channel activity detected ERR %d, %d\n", current_time - prev_sniff_time, counter);
-  prev_sniff_time = current_time;
-}
-
-
-void rx_to_cb(const dwt_cb_data_t *cb_data){
-  dwt_forcetrxoff();
-  dwt_rxreset();
-  counter++;
-  printf("No channel activity %d\n", counter);
-}
-/*---------------------------------------------------------------------------*/
-
 
 PROCESS_THREAD(report_stat, ev, data){
   static struct etimer et;
@@ -225,112 +180,99 @@ PROCESS_THREAD(report_stat, ev, data){
 
 
 
-void dwt_init(){
-  dw1000_arch_init();
-  dw1000_reset_cfg();
 
-  dw1000_set_isr(dwt_isr);
-  /* Register TX/RX callbacks. */
-  dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
-  /* Enable wanted interrupts (TX confirmation, RX good frames, RX timeouts and RX errors). */
-  dwt_setinterrupt(DWT_INT_TFRS | DWT_INT_RFCG | DWT_INT_RFTO | DWT_INT_RXPTO |
-                   DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
-                   DWT_INT_ARFE, 1);
-
-  
-}
-
+uint32_t status_reg;
+int phase;
 
 PROCESS_THREAD(range_process, ev, data){
   static struct etimer et;
   static struct etimer timeout;
   static int status;
-  
+
   
   
   PROCESS_BEGIN();
 
 
-   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
+  // dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
   node_id = get_node_addr();
 
-  printf("STARTING reliability EXP2: SNIFF_INTERVAL %d, RAPID_SNIFF_INT %d, WAC_TO %d, %d\n", SNIFF_INTERVAL, RAPID_SNIFF_INTERVAL, P2_TO_THRESH, PDTO);
+  printf("STARTING reliability EXP2\n");
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
   dwt_forcetrxoff();
-  dwt_setpreambledetecttimeout(PDTO);  
+  dwt_setpreambledetecttimeout(3);  
   payload[2] = node_id;
   clock_init();
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
-  
-  
 
-  while (1){
-    // dw1000_sleep();
-    etimer_set(&et, 1);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    // dw1000_wakeup();
-    etimer_set(&et, 1);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  // dwt_setinterrupt(DWT_INT_TFRS | DWT_INT_RFCG | DWT_INT_RFTO | DWT_INT_RXPTO |
+  //                  DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
+  //                  DWT_INT_ARFE, 0);
 
-    detection_status = RX_WAK_P1;
-    config_change = true;
-    if (config.rxCode != 9){
-      config_change = true;
+  switch(node_id){
+    case 161:
+    case 163:
+    case 165:
+    case 167:
+    case 169:
+      config.rxCode = 1;
+      config.prf = DWT_PRF_16M;
+      break;
+
+    case 162:
+    case 164:
+    case 166:
+    case 168:
+    case 172:
       config.rxCode = 9;
       config.prf = DWT_PRF_64M;
-    }
-    if (config.rxPAC != PAC){
-      config_change = true;
-      config.rxPAC = PAC;
-    }
-    if (config.sfdTO != SFD_TO){
-      config_change = true;
-      config.sfdTO = SFD_TO;
-    }
-    etimer_set(&et, wac1_sniff_inteval - 12);
+      break;
+
+  }
+  
+  
+  phase = 0;
+  while (1){
+    // dw1000_sleep();
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    dwt_forcetrxoff();
     dwt_configure(&config);
     dwt_forcetrxoff();
     dwt_rxreset();
-    dwt_setpreambledetecttimeout(PDTO);
-    if(dwt_rxenable(DWT_START_RX_IMMEDIATE) != DWT_SUCCESS){
-      printf("gholi\n");
-    }
-    etimer_set(&et, 10);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    wac1_sniff_inteval = SNIFF_INTERVAL;
-    
-
-    config_change = true;
-    if (config.rxCode != WAC2_PC){
-      config_change = true;
-      config.rxCode = WAC2_PC;
-      // config.prf = DWT_PRF_16M;
-    }
-    if (config.rxPAC != PAC){
-      config_change = true;
-      config.rxPAC = PAC;
-    }
-    if (config.sfdTO != SFD_TO){
-      config_change = true;
-      config.sfdTO = SFD_TO;
-    }
-    if (config_change){
-      dwt_configure(&config);
-    }
-    
-    dwt_forcetrxoff();
-    dwt_rxreset();
-    etimer_set(&et, RAPID_SNIFF_INTERVAL - 11);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    P2_timeout += RAPID_SNIFF_INTERVAL;
-    etimer_set(&et, 10);
+    etimer_set(&et,3);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    status_reg = dwt_read32bitreg(SYS_STATUS_ID);
     
-    
+    if (status_reg & SYS_STATUS_RXFCG){
+      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
+      printf("RXOK\n");
+    }
+    if (status_reg & SYS_STATUS_ALL_RX_TO){
+      // printf("RX TO\n");
+      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+    }
+    if (status_reg & SYS_STATUS_ALL_RX_ERR){
+
+      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+      phase = (phase + 1) % 2;
+
+      if (phase == 1){
+        config.rxCode = 1;
+        config.prf = DWT_PRF_16M;
+      }else{
+        config.rxCode = 9;
+        config.prf = DWT_PRF_64M;
+      }
+
+      if (status_reg & SYS_STATUS_RXPHE){printf("PHE ERR\n");}
+      if (status_reg & SYS_STATUS_RXFCE){printf("FCE ERR\n");}
+      if (status_reg & SYS_STATUS_RXSFDTO){printf("SFDTO ERR\n");}
+      if (status_reg & SYS_STATUS_RXRFSL){printf("FSL ERR\n");}
+    }
+
 
   }
   

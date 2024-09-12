@@ -67,14 +67,8 @@ typedef enum{
 }DETECTION_STATUS;
 
 /*---------------------------------------------------------------------------*/
-#define VALUE            1000
-#define WaC1_LEN_MS      VALUE
-#define WaC2_LEN_MS      VALUE  
-#define LISTEN_LEN_MS    65
-#define TS_MSG           0
 
-#define WAC2_PC          11
-#define SCAN_INTERVAL    5
+#define IPI              100
 
 /*---------------------------------------------------------------------------*/
 
@@ -103,6 +97,7 @@ dwt_config_t config = {
     DWT_PHRMODE_STD, /* PHY header mode. */
     (8000) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
 };
+
 
 dwt_txconfig_t txConf = {
     0xC9, //PGDelay
@@ -147,6 +142,7 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
 /*-------------------------------------------------------------------*/
 
 int counter = 0;
+uint32_t status_reg;
 PROCESS_THREAD(range_process, ev, data)
 {
   static struct etimer et;
@@ -155,8 +151,12 @@ PROCESS_THREAD(range_process, ev, data)
 
   PROCESS_BEGIN();
   static struct etimer et;
+  // dw1000_set_isr(dwt_isr);
+  // dwt_setinterrupt(DWT_INT_TFRS | DWT_INT_RFCG | DWT_INT_RFTO | DWT_INT_RXPTO |
+  //                 DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
+  //                 DWT_INT_ARFE, 1);
   
-  dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
+  // dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
   etimer_set(&et, CLOCK_SECOND * 2);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
   dwt_configure(&config);
@@ -165,51 +165,48 @@ PROCESS_THREAD(range_process, ev, data)
    clock_init();
   dwt_writetxdata(sizeof(msg), msg, 0);
   dwt_writetxfctrl(sizeof(msg), 0, 0);
-  printf("Starting scanner with WaC22: %d, SCAN_INTERVAL %d\n", WaC2_LEN_MS, SCAN_INTERVAL);
+  printf("Starting scanner \n");
   dwt_setpreambledetecttimeout(0);
   index_cnt = 0;
 
   while (1){
-    scan_init_time = clock_time();
-    counter ++;    
-    printf("Start sending WaK1: %d, %d\n", scan_init_time, counter);
+    printf("Start sending WaK: %d, %d\n", scan_init_time, counter);
     /* ------------------------ Sending WaC1 --------------------------------*/
-    stop_trans = 0;
+    dwt_forcetrxoff();
+    config.prf = DWT_PRF_64M;
+    config.txCode = 9;
+    dwt_configure(&config);
     dwt_forcetrxoff();
     memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
     dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
-    detection_status = WAK_1;
     dwt_starttx(DWT_START_TX_IMMEDIATE);
-    WaC_start_time = clock_time();
-    etimer_set(&et, WaC1_LEN_MS); // TX WaC1
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    stop_trans = 1; 
-    dwt_forcetrxoff();
-    dwt_rxreset();
-    index_cnt = 0;
     
+    etimer_set(&et, IPI); // TX WaC1
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+    if (status_reg & SYS_STATUS_TXFRS){
+      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
+    }
+    dwt_forcetrxoff();
     /* ----------------------- Changing to WaC2 -------------------------------------*/
-    scan_init_time = clock_time();
-    counter++;
     printf("Start sending WaK2: %d, %d\n", scan_init_time, counter);
-    // config.prf = DWT_PRF_16M;
-    config.txCode = WAC2_PC;
+    config.prf = DWT_PRF_16M;
+    config.txCode = 1;
     dwt_configure(&config);
     dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
     stop_trans = 0;
     detection_status = WAK_2;
     dwt_starttx(DWT_START_TX_IMMEDIATE);
-    etimer_set(&et, WaC2_LEN_MS); // TX WaC2
+    etimer_set(&et, IPI); // TX WaC2
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+    if (status_reg & SYS_STATUS_TXFRS){
+      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
+    }
     stop_trans = 1; // Once done TX start RX
     /*------------------------------------------------------------------------------*/
-    dwt_forcetrxoff();
-    config.prf = DWT_PRF_64M;
-    config.txCode = 9;
-    dwt_configure(&config);
-    error_cnt = 0;
     dwt_forcetrxoff();
   }
   
