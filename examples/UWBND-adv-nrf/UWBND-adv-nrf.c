@@ -179,10 +179,36 @@ PROCESS_THREAD(report_stat, ev, data){
 
 
 
-
-
 uint32_t status_reg;
 int phase;
+
+void rx_ok_cb(const dwt_cb_data_t *cb_data){
+  dwt_forcetrxoff();
+  dwt_rxenable(DWT_START_RX_IMMEDIATE);
+  // printf("TX OK Sender\n");
+}
+
+void rx_err_cb(const dwt_cb_data_t *cb_data){
+  dwt_forcetrxoff();
+  phase = (phase + 1) % 2;
+  if (phase == 1){
+    printf("WAC1 detected\n");
+
+  }else{
+    printf("WAC2 detected\n");
+  }
+  // printf("TX OK Sender\n");
+}
+
+void rx_to_cb(const dwt_cb_data_t *cb_data){
+  dwt_forcetrxoff();
+
+}
+
+
+
+
+
 
 PROCESS_THREAD(range_process, ev, data){
   static struct etimer et;
@@ -194,7 +220,7 @@ PROCESS_THREAD(range_process, ev, data){
   PROCESS_BEGIN();
 
 
-  // dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
+  dwt_setcallbacks(NULL, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
   node_id = get_node_addr();
 
   printf("STARTING reliability EXP2\n");
@@ -207,36 +233,36 @@ PROCESS_THREAD(range_process, ev, data){
   clock_init();
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
 
-  // dwt_setinterrupt(DWT_INT_TFRS | DWT_INT_RFCG | DWT_INT_RFTO | DWT_INT_RXPTO |
-  //                  DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
-  //                  DWT_INT_ARFE, 0);
+  dw1000_set_isr(dwt_isr);
+  dwt_setinterrupt(DWT_INT_TFRS | DWT_INT_RFCG | DWT_INT_RFTO | DWT_INT_RXPTO |
+                  DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
+                  DWT_INT_ARFE, 1);
+  
 
-  switch(node_id){
-    case 161:
-    case 163:
-    case 165:
-    case 167:
-    case 169:
-      config.rxCode = 1;
-      config.prf = DWT_PRF_16M;
-      break;
+  // switch(node_id){
+  //   case 161:
+  //   case 163:
+  //   case 165:
+  //   case 167:
+  //   case 169:
+  //     config.rxCode = 1;
+  //     config.prf = DWT_PRF_16M;
+  //     break;
 
-    case 162:
-    case 164:
-    case 166:
-    case 168:
-    case 172:
-      config.rxCode = 9;
-      config.prf = DWT_PRF_64M;
-      break;
+  //   case 162:
+  //   case 164:
+  //   case 166:
+  //   case 168:
+  //   case 172:
+  //     config.rxCode = 9;
+  //     config.prf = DWT_PRF_64M;
+  //     break;
 
-  }
+  // }
   
   
   phase = 0;
   while (1){
-    // dw1000_sleep();
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
     dwt_forcetrxoff();
     dwt_configure(&config);
     dwt_forcetrxoff();
@@ -244,20 +270,20 @@ PROCESS_THREAD(range_process, ev, data){
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     etimer_set(&et,3);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+    // status_reg = dwt_read32bitreg(SYS_STATUS_ID);
     
-    if (status_reg & SYS_STATUS_RXFCG){
-      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
-      printf("RXOK\n");
-    }
-    if (status_reg & SYS_STATUS_ALL_RX_TO){
-      // printf("RX TO\n");
-      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-    }
-    if (status_reg & SYS_STATUS_ALL_RX_ERR){
+    // if (status_reg & SYS_STATUS_RXFCG){
+    //   dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
+    //   printf("RXOK\n");
+    // }
+    // if (status_reg & SYS_STATUS_ALL_RX_TO){
+    //   // printf("RX TO\n");
+    //   dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+    // }
+    // if (status_reg & SYS_STATUS_ALL_RX_ERR){
 
-      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-      phase = (phase + 1) % 2;
+    //   dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+    //   phase = (phase + 1) % 2;
 
       if (phase == 1){
         config.rxCode = 1;
@@ -267,11 +293,11 @@ PROCESS_THREAD(range_process, ev, data){
         config.prf = DWT_PRF_64M;
       }
 
-      if (status_reg & SYS_STATUS_RXPHE){printf("PHE ERR\n");}
-      if (status_reg & SYS_STATUS_RXFCE){printf("FCE ERR\n");}
-      if (status_reg & SYS_STATUS_RXSFDTO){printf("SFDTO ERR\n");}
-      if (status_reg & SYS_STATUS_RXRFSL){printf("FSL ERR\n");}
-    }
+    //   if (status_reg & SYS_STATUS_RXPHE){printf("PHE ERR\n");}
+    //   if (status_reg & SYS_STATUS_RXFCE){printf("FCE ERR\n");}
+    //   if (status_reg & SYS_STATUS_RXSFDTO){printf("SFDTO ERR\n");}
+    //   if (status_reg & SYS_STATUS_RXRFSL){printf("FSL ERR\n");}
+    // }
 
 
   }
