@@ -1,5 +1,9 @@
 CONTIKI_PROJECT = UWBND-scanner
 all: $(CONTIKI_PROJECT)
+TESTBED?=mytestbed-${TARGET}
+
+PROJECTDIRS += ../deployment ../deployment/$(TESTBED)
+PROJECT_SOURCEFILES += deployment.c node-map.c
 
 # enable softdevice
 #NRF52_SOFTDEVICE = 132

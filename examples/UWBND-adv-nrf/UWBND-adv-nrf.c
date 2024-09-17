@@ -105,7 +105,7 @@ uint16_t get_node_addr(){
   return node_id;
 
 }
-uint16_t node_id;
+// uint16_t node_id;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
@@ -156,6 +156,7 @@ uint8_t rx_payload[20];
 DETECTION_STATUS detection_status = RX_WAK_P1;
 clock_time_t wac1_detection_time, current_time;
 clock_time_t timeOut = TIMEOUT_MS;
+int wac1_sniff_interval = SNIFF_INTERVAL;
 
 
 /*---------------------------------------------------------------------------*/
@@ -190,7 +191,7 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
     wac1_detection_time = clock_time();
   }else{
     printf("WAC2 detected\n");
-    detection_status = RX_WAK_P1;
+    detection_status = WAITING;
   }
 }
 
@@ -214,7 +215,12 @@ PROCESS_THREAD(range_process, ev, data){
 
 
   dwt_setcallbacks(NULL, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
-  node_id = get_node_addr();
+  if(deployment_set_node_id_ieee_addr()){
+    printf("NODE addr set successfully: %d\n", node_id);
+  }else{
+    printf("Failed to set nodeID\n");
+  }
+
 
   printf("STARTING reliability EXP2\n");
   dwt_configure(&config);
@@ -226,10 +232,10 @@ PROCESS_THREAD(range_process, ev, data){
   clock_init();
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
 
-  dw1000_set_isr(dwt_isr);
-  dwt_setinterrupt(DWT_INT_TFRS | DWT_INT_RFCG | DWT_INT_RFTO | DWT_INT_RXPTO |
-                  DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
-                  DWT_INT_ARFE, 1);
+  // dw1000_set_isr(dwt_isr);
+  // dwt_setinterrupt(DWT_INT_TFRS | DWT_INT_RFCG | DWT_INT_RFTO | DWT_INT_RXPTO |
+  //                 DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
+  //                 DWT_INT_ARFE, 1);
   
 
 
@@ -238,27 +244,36 @@ PROCESS_THREAD(range_process, ev, data){
   while (1){
     dwt_forcetrxoff();
     if (detection_status == RX_WAK_P1){
-      config.rxCode = 1;
-      config.prf = DWT_PRF_16M;
+      config.rxCode = 9;
+      config.prf = DWT_PRF_64M;
       dwt_configure(&config);
-      etimer_set(&et, SNIFF_INTERVAL - 3);
+      etimer_set(&et, wac1_sniff_interval - 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
       dwt_rxreset();
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       etimer_set(&et, 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+      if (status_reg & SYS_STATUS_ALL_RX_ERR){
+        wac1_detection_time = clock_time();
+        printf("WAC1 detected\n");
+        detection_status = RX_WAK_P2;
+      }
+      wac1_sniff_interval = SNIFF_INTERVAL;
+
     }
     if (detection_status == RX_WAK_P2){
       current_time = clock_time();
       if (current_time - wac1_detection_time > timeOut){
-        printf("TO\n");
+        printf("TOdfdfd\n");
         detection_status = RX_WAK_P1;
+        wac1_sniff_interval = 4;
         continue;
       }
 
-      config.rxCode = 9;
-      config.prf = DWT_PRF_64M;
+      config.rxCode = 1;
+      config.prf = DWT_PRF_16M;
       dwt_configure(&config);
       etimer_set(&et, RAPID_SNIFF_INTERVAL - 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
@@ -267,7 +282,28 @@ PROCESS_THREAD(range_process, ev, data){
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       etimer_set(&et, 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+      if (status_reg & SYS_STATUS_ALL_RX_ERR){
+        printf("WAC2 detected\n");
+        detection_status = WAITING;
+      }
     }
+    if (detection_status == WAITING){
+      etimer_set(&et, RAPID_SNIFF_INTERVAL + 10);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      detection_status = RDY_TO_TX;
+    }
+    if (detection_status == RDY_TO_TX){
+      printf("TX ....\n");
+      dwt_forcetrxoff();
+      dwt_writetxdata(sizeof(payload), payload, 0);
+      dwt_writetxfctrl(sizeof(payload), 0, 0);
+      if (dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
+        printf("TX failed\n");
+      }
+      detection_status = RX_WAK_P1;
+    }
+
 
 
 
