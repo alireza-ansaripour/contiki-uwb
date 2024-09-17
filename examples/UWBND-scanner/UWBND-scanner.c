@@ -41,11 +41,79 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <math.h>
-#include "sys/node-id.h"
-#include "net/netstack.h"
+// #include "sys/node-id.h"
+// #include "net/netstack.h"
 
-#include "core/net/linkaddr.h"
-#include <sys/node-id.h>
+// #include "core/net/linkaddr.h"
+// #include <sys/node-id.h>
+
+
+uint16_t get_node_addr(){
+  uint16_t node_id;
+  uint32_t dev_id = NRF_FICR->DEVICEADDR[0];
+  switch (dev_id){
+    case 0x5270f477:
+      node_id = 166;
+      break;
+
+    case 0x752a0381:
+      node_id = 161;
+      break;
+    
+    case 0x81984018:
+      node_id = 165;
+      break;
+    
+    case 0x5c50e9de:
+      node_id = 168;
+      break;
+    
+    case 0xaaf5c764:
+      node_id = 162;
+      break;
+    
+    case 0x4ed6a168:
+      node_id = 170;
+      break;
+
+    case 0x25571c0e:
+      node_id = 167;
+      break;
+
+    case 0x723ee061:
+      node_id = 163;
+      break;
+    
+    case 0xda82e887:
+      node_id = 169;
+      break;
+
+    case 0x7605ae4e:
+      node_id = 173;
+      break;
+    
+
+    case 0x2510ed2a:
+      node_id = 172;
+      break;
+    
+    case 0x685c382a:
+      node_id = 164;
+      break;
+
+    case 0xabe717f8:
+      node_id = 171;
+      break;
+  };
+
+  return node_id;
+
+}
+
+uint16_t node_id;
+
+
+
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
@@ -68,7 +136,7 @@ typedef enum{
 
 /*---------------------------------------------------------------------------*/
 
-#define IPI              100
+#define IPI              5
 
 /*---------------------------------------------------------------------------*/
 
@@ -159,22 +227,42 @@ PROCESS_THREAD(range_process, ev, data)
   // dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
   etimer_set(&et, CLOCK_SECOND * 2);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  node_id = get_node_addr();
+  switch (node_id)
+  {
+  case 161:
+      config.rxCode = 1;
+      config.prf = DWT_PRF_16M;
+    break;
+  
+  case 162:
+      config.rxCode = 9;
+      config.prf = DWT_PRF_64M;
+    break;
+
+  default:
+    break;
+  }
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
-   clock_init();
+  clock_init();
   dwt_writetxdata(sizeof(msg), msg, 0);
   dwt_writetxfctrl(sizeof(msg), 0, 0);
   printf("Starting scanner \n");
+
+
+  
+  
   dwt_setpreambledetecttimeout(0);
   index_cnt = 0;
 
   while (1){
-    printf("Start sending WaK: %d, %d\n", scan_init_time, counter);
+    // printf("Start sending WaK: %d, %d\n", scan_init_time, counter);
     /* ------------------------ Sending WaC1 --------------------------------*/
     dwt_forcetrxoff();
-    config.prf = DWT_PRF_64M;
-    config.txCode = 9;
+    // config.prf = DWT_PRF_64M;
+    // config.txCode = 9;
     dwt_configure(&config);
     dwt_forcetrxoff();
     memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
@@ -190,9 +278,9 @@ PROCESS_THREAD(range_process, ev, data)
     }
     dwt_forcetrxoff();
     /* ----------------------- Changing to WaC2 -------------------------------------*/
-    printf("Start sending WaK2: %d, %d\n", scan_init_time, counter);
-    config.prf = DWT_PRF_16M;
-    config.txCode = 1;
+    // printf("Start sending WaK2: %d, %d\n", scan_init_time, counter);
+    // config.prf = DWT_PRF_16M;
+    // config.txCode = 1;
     dwt_configure(&config);
     dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);

@@ -126,7 +126,10 @@ typedef enum{
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
 
-#define IPI                             10
+#define IPI                             100
+#define SNIFF_INTERVAL                  500
+#define RAPID_SNIFF_INTERVAL            50
+#define TIMEOUT_MS                      150
 
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
@@ -151,19 +154,10 @@ dwt_txconfig_t txConf = {
 uint8_t payload[] = {0xad, 0, 0, 0, 0, 0};
 uint8_t rx_payload[20];
 DETECTION_STATUS detection_status = RX_WAK_P1;
-int WaC_wating = 0;
-int P2_timeout = 0;
-int CLS_timeout = 0;
-bool config_change = false;
-int cca_timer = 0;
-int back_off = 0;
-int tot_sniffs = 0;
-int sniff_cnt = 0;
-int wac1_sniffs = 0;
-int tot_wac1_scan = 0;
-clock_time_t prev_sniff_time, current_time; 
-int counter = 0;
-uint32_t tx_timestamp, reply_sniff_timestamp;
+clock_time_t wac1_detection_time, current_time;
+clock_time_t timeOut = TIMEOUT_MS;
+
+
 /*---------------------------------------------------------------------------*/
 
 PROCESS_THREAD(report_stat, ev, data){
@@ -172,7 +166,7 @@ PROCESS_THREAD(report_stat, ev, data){
   while (1){
     etimer_set(&et, CLOCK_SECOND);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    printf("NODE STAT: TOT sniff cnt: %d, WaC1 sniffs: %d, 0x%x\n", tot_sniffs, wac1_sniffs, 0);
+    
   }
   PROCESS_END();
 }
@@ -190,19 +184,18 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
 
 void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
-  phase = (phase + 1) % 2;
-  if (phase == 1){
+  if (detection_status == RX_WAK_P1){
     printf("WAC1 detected\n");
-
+    detection_status = RX_WAK_P2;
+    wac1_detection_time = clock_time();
   }else{
     printf("WAC2 detected\n");
+    detection_status = RX_WAK_P1;
   }
-  // printf("TX OK Sender\n");
 }
 
 void rx_to_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
-
 }
 
 
@@ -239,37 +232,52 @@ PROCESS_THREAD(range_process, ev, data){
                   DWT_INT_ARFE, 1);
   
 
-  // switch(node_id){
-  //   case 161:
-  //   case 163:
-  //   case 165:
-  //   case 167:
-  //   case 169:
-  //     config.rxCode = 1;
-  //     config.prf = DWT_PRF_16M;
-  //     break;
 
-  //   case 162:
-  //   case 164:
-  //   case 166:
-  //   case 168:
-  //   case 172:
-  //     config.rxCode = 9;
-  //     config.prf = DWT_PRF_64M;
-  //     break;
-
-  // }
+  detection_status = RX_WAK_P1;
   
-  
-  phase = 0;
   while (1){
     dwt_forcetrxoff();
-    dwt_configure(&config);
-    dwt_forcetrxoff();
-    dwt_rxreset();
-    dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    etimer_set(&et,3);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    if (detection_status == RX_WAK_P1){
+      config.rxCode = 1;
+      config.prf = DWT_PRF_16M;
+      dwt_configure(&config);
+      etimer_set(&et, SNIFF_INTERVAL - 3);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      dwt_forcetrxoff();
+      dwt_rxreset();
+      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      etimer_set(&et, 3);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    }
+    if (detection_status == RX_WAK_P2){
+      current_time = clock_time();
+      if (current_time - wac1_detection_time > timeOut){
+        printf("TO\n");
+        detection_status = RX_WAK_P1;
+        continue;
+      }
+
+      config.rxCode = 9;
+      config.prf = DWT_PRF_64M;
+      dwt_configure(&config);
+      etimer_set(&et, RAPID_SNIFF_INTERVAL - 3);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      dwt_forcetrxoff();
+      dwt_rxreset();
+      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      etimer_set(&et, 3);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    }
+
+
+
+  }
+  
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/
+
+
     // status_reg = dwt_read32bitreg(SYS_STATUS_ID);
     
     // if (status_reg & SYS_STATUS_RXFCG){
@@ -285,23 +293,10 @@ PROCESS_THREAD(range_process, ev, data){
     //   dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
     //   phase = (phase + 1) % 2;
 
-      if (phase == 1){
-        config.rxCode = 1;
-        config.prf = DWT_PRF_16M;
-      }else{
-        config.rxCode = 9;
-        config.prf = DWT_PRF_64M;
-      }
+      
 
     //   if (status_reg & SYS_STATUS_RXPHE){printf("PHE ERR\n");}
     //   if (status_reg & SYS_STATUS_RXFCE){printf("FCE ERR\n");}
     //   if (status_reg & SYS_STATUS_RXSFDTO){printf("SFDTO ERR\n");}
     //   if (status_reg & SYS_STATUS_RXRFSL){printf("FSL ERR\n");}
     // }
-
-
-  }
-  
-  PROCESS_END();
-}
-/*---------------------------------------------------------------------------*/
