@@ -71,6 +71,7 @@ typedef enum{
 /*---------------------------------------------------------------------------*/
 
 #define IPI              5
+#define WAC1_TIME        500
 
 /*---------------------------------------------------------------------------*/
 
@@ -83,12 +84,13 @@ static struct Scan_report report;
 DETECTION_STATUS detection_status = CCA_1;
 uint32_t WaC_start_time, WaC_current_time;
 clock_time_t scan_init_time, scan_end_time;
+clock_time_t wac1_start_time, wac2_start_time;
 
 clock_time_t listen_begin_time, listen_end_time;
 uint32_t adv_rx_time, rep_tx_time;
 
 dwt_config_t config = {
-    1, /* Channel number. */
+    5, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_4096, /* Preamble length. Used in TX only. */
     DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
@@ -172,13 +174,15 @@ PROCESS_THREAD(range_process, ev, data)
 
   switch (node_id)
   {
-  case 161:
-      config.rxCode = 1;
+  case 128:
+  case 77:
+      printf("here setting config\n");
+      config.txCode = 3;
       config.prf = DWT_PRF_16M;
     break;
   
   case 162:
-      config.rxCode = 9;
+      config.txCode = 9;
       config.prf = DWT_PRF_64M;
     break;
 
@@ -191,7 +195,7 @@ PROCESS_THREAD(range_process, ev, data)
   clock_init();
   dwt_writetxdata(sizeof(msg), msg, 0);
   dwt_writetxfctrl(sizeof(msg), 0, 0);
-  printf("Starting scanner \n");
+  printf("Starting scanner:%d \n", node_id);
 
 
   
@@ -200,18 +204,19 @@ PROCESS_THREAD(range_process, ev, data)
   index_cnt = 0;
 
   while (1){
-    // printf("Start sending WaK: %d, %d\n", scan_init_time, counter);
+    
     /* ------------------------ Sending WaC1 --------------------------------*/
+    
     dwt_forcetrxoff();
     // config.prf = DWT_PRF_64M;
     // config.txCode = 9;
-    dwt_configure(&config);
+    // dwt_configure(&config);
+    wac1_start_time = clock_time();
     dwt_forcetrxoff();
     memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
     dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
-    
     etimer_set(&et, IPI); // TX WaC1
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     status_reg = dwt_read32bitreg(SYS_STATUS_ID);
@@ -223,7 +228,7 @@ PROCESS_THREAD(range_process, ev, data)
     // printf("Start sending WaK2: %d, %d\n", scan_init_time, counter);
     // config.prf = DWT_PRF_16M;
     // config.txCode = 1;
-    dwt_configure(&config);
+    // dwt_configure(&config);
     dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
     stop_trans = 0;
