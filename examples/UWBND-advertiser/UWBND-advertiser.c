@@ -45,7 +45,6 @@
 
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
-PROCESS(report_stat, "Test range process");
 AUTOSTART_PROCESSES(&range_process);
 #define UUS_TO_DWT_TIME     65536
 /*---------------------------------------------------------------------------*/
@@ -61,17 +60,13 @@ typedef enum{
 }DETECTION_STATUS;
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
-
-#define IPI                             1000
-#define SNIFF_INTERVAL                  IPI
-#define RAPID_SNIFF_INTERVAL            IPI
-#define TIMEOUT_MS                      IPI
-
+#define RESP_WAIT  10
+#define T_ADV      500
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
     5, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
-    DWT_PLEN_256, /* Preamble length. Used in TX only. */
+    DWT_PLEN_64, /* Preamble length. Used in TX only. */
     DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
@@ -89,51 +84,16 @@ dwt_txconfig_t txConf = {
 
 uint8_t payload[] = {0xad, 0, 0, 0, 0, 0};
 uint8_t rx_payload[20];
-DETECTION_STATUS detection_status = RX_WAK_P1;
-clock_time_t start_time, current_time;
-clock_time_t timeOut = TIMEOUT_MS;
-int wac1_sniff_interval = SNIFF_INTERVAL;
-
-
-/*---------------------------------------------------------------------------*/
-
-PROCESS_THREAD(report_stat, ev, data){
-  static struct etimer et;
-  PROCESS_BEGIN();
-  while (1){
-    etimer_set(&et, CLOCK_SECOND);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    
-  }
-  PROCESS_END();
-}
-
-
-
 uint32_t status_reg;
-int phase;
 
-
-
-
-
-int wac1_detected, wac2_detected;
 PROCESS_THREAD(range_process, ev, data){
   static struct etimer et;
-  static struct etimer timeout;
-  static int status;
 
   
   
   PROCESS_BEGIN();
 
-  dw1000_arch_reset();
-  dw1000_arch_init();
-
-  /* Set the default configuration */
-  dw1000_reset_cfg();
-
-  // dwt_setcallbacks(NULL, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
+  
   if(deployment_set_node_id_ieee_addr()){
     printf("NODE addr set successfully: %d\n", node_id);
   }else{
@@ -150,178 +110,47 @@ PROCESS_THREAD(range_process, ev, data){
   clock_init();
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
 
+  // dwt_setcallbacks(NULL, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
   // dw1000_set_isr(dwt_isr);
   // dwt_setinterrupt(DWT_INT_TFRS | DWT_INT_RFCG | DWT_INT_RFTO | DWT_INT_RXPTO |
   //                 DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
   //                 DWT_INT_ARFE, 1);
   
-
-
-  detection_status = RX_WAK_P1;
-  wac1_sniff_interval = SNIFF_INTERVAL;
-  start_time = clock_time();
-  current_time = clock_time();
-  wac1_detected = 0;
-  wac2_detected = 0;
+  dwt_writetxdata(sizeof(payload), payload, 0);
   while (1){
-    while (current_time - start_time < 1000){
-      current_time = clock_time();
-      wac1_detected = 0;
-      wac2_detected = 0;
-
-      config.rxCode = 3;
-      config.prf = DWT_PRF_16M;
-      dwt_configure(&config);
-      etimer_set(&et, 10);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      dwt_forcetrxoff();
-      dwt_rxreset();
-      printf("TEST1\n");
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 3);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-      if (status_reg & SYS_STATUS_ALL_RX_ERR){
-        printf("WAC1\n");
-        wac1_detected = 1;
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-      }else{
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
-      }
-      
-      etimer_set(&et, 10);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-
-      config.rxCode = 9;
-      config.prf = DWT_PRF_64M;
-      config.rxPAC = DWT_PAC8;
-      dwt_configure(&config);
-      dwt_setpreambledetecttimeout(3);  
-      etimer_set(&et, 10);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      dwt_forcetrxoff();
-      dwt_rxreset();
-      printf("TEST2\n");
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 3);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-      if (status_reg & SYS_STATUS_ALL_RX_ERR){
-        printf("WAC2\n");
-        wac2_detected = 1;
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
-      }else{
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
-      }
-      if (wac1_detected == 1 && wac2_detected == 1){
-        break;
-      }
+    dwt_writetxfctrl(sizeof(payload), 0, 0);
+    dwt_starttx(DWT_START_TX_IMMEDIATE);
+    etimer_set(&et, 5);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    
+    status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+    if (status_reg & SYS_STATUS_TXFRS){
+      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
     }
-    if (wac1_detected == 1 && wac2_detected == 1){
-      printf("WAK DETECTION COMPLETED\n");
-      break;
-    }else{
-      printf("restarting\n");
-      dw1000_arch_reset();
-      dw1000_arch_init();
-
-      dw1000_reset_cfg();
-      dwt_setpreambledetecttimeout(3);  
-      start_time = current_time;
-      
-      etimer_set(&et, 100);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      start_time = clock_time();
+    dwt_forcetrxoff();
+    etimer_set(&et, RESP_WAIT - 5);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    etimer_set(&et, 5);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    if (status_reg & SYS_STATUS_RXFCG){
+      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
+      printf("FOUND RESP\n");
+    }
+    if (status_reg & SYS_STATUS_ALL_RX_TO){
+      printf("RX TO\n");
+      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+    }
+    if (status_reg & SYS_STATUS_ALL_RX_ERR){
+      printf("RX err\n");
+      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
 
     }
-  }
 
-
-  printf("END RESULT %d\n", wac1_detected == 1 && wac2_detected == 1);
-  
-
-
-
-  while (1){
-    if (detection_status == RX_WAK_P1){
-      config.rxCode = 3;
-      config.prf = DWT_PRF_16M;
-      dwt_configure(&config);
-      etimer_set(&et, wac1_sniff_interval - 3);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      dwt_forcetrxoff();
-      dwt_rxreset();
-      printf("Sniffing1\n");
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 3);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-      if (status_reg & SYS_STATUS_ALL_RX_ERR){
-        printf("WAC1 detected\n");
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-      }else{
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
-      }
-      wac1_sniff_interval = SNIFF_INTERVAL;
-      detection_status = RX_WAK_P2;
-      continue;
-
-    }
-    if (detection_status == RX_WAK_P2){
-      current_time = clock_time();
-      // if (current_time - wac1_detection_time > timeOut){
-      //   printf("TO2\n");
-      //   // config.rxCode = 1;
-      //   // config.prf = DWT_PRF_16M;
-      //   // dwt_forcetrxoff();
-      //   // dwt_configure(&config);
-      //   detection_status = RX_WAK_P1;
-      //   // wac1_sniff_interval = 10;
-      //   continue;
-      // }
-
-      config.rxCode = 9;
-      config.prf = DWT_PRF_64M;
-      config.rxPAC = DWT_PAC8;
-      dwt_configure(&config);
-      dwt_setpreambledetecttimeout(3);  
-      etimer_set(&et, RAPID_SNIFF_INTERVAL - 3);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      dwt_forcetrxoff();
-      dwt_rxreset();
-      printf("Sniffing2\n");
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 3);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-      if (status_reg & SYS_STATUS_ALL_RX_ERR){
-        printf("WAC2 detected\n");
-        detection_status = RX_WAK_P1;
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
-      }else{
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
-      }
-      detection_status = RX_WAK_P1;
-      
-    }
-    if (detection_status == WAITING){
-      etimer_set(&et, RAPID_SNIFF_INTERVAL + 10);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      detection_status = RDY_TO_TX;
-    }
-    if (detection_status == RDY_TO_TX){
-      printf("TX ....\n");
-      dwt_forcetrxoff();
-      dwt_writetxdata(sizeof(payload), payload, 0);
-      dwt_writetxfctrl(sizeof(payload), 0, 0);
-      if (dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
-        printf("TX failed\n");
-      }
-      detection_status = RX_WAK_P1;
-    }
-
-
-
+    etimer_set(&et, T_ADV - RESP_WAIT);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    
+    
 
   }
   
