@@ -73,7 +73,7 @@ dwt_config_t config = {
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
     DWT_BR_6M8, /* Data rate. */
     DWT_PHRMODE_STD, /* PHY header mode. */
-    (2) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
+    (8000) /* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
 };
 
 dwt_txconfig_t txConf = {
@@ -105,7 +105,7 @@ PROCESS_THREAD(range_process, ev, data){
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
-  dwt_setpreambledetecttimeout(3);  
+  dwt_setpreambledetecttimeout(100);  
   payload[2] = node_id;
   clock_init();
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
@@ -120,25 +120,28 @@ PROCESS_THREAD(range_process, ev, data){
   while (1){
     dwt_writetxfctrl(sizeof(payload), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
-    etimer_set(&et, 5);
+    etimer_set(&et, 1);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     
     status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+
     if (status_reg & SYS_STATUS_TXFRS){
       dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
     }
+    
     dwt_forcetrxoff();
-    etimer_set(&et, RESP_WAIT - 5);
+    etimer_set(&et, RESP_WAIT);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     etimer_set(&et, 5);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+
     if (status_reg & SYS_STATUS_RXFCG){
       dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
       printf("FOUND RESP\n");
     }
     if (status_reg & SYS_STATUS_ALL_RX_TO){
-      printf("RX TO\n");
       dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
     }
     if (status_reg & SYS_STATUS_ALL_RX_ERR){
@@ -146,8 +149,8 @@ PROCESS_THREAD(range_process, ev, data){
       dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
 
     }
-
-    etimer_set(&et, T_ADV - RESP_WAIT);
+    dwt_forcetrxoff();
+    etimer_set(&et, T_ADV - RESP_WAIT - 6);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     
     

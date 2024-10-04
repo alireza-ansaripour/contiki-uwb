@@ -50,6 +50,7 @@
 
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
+PROCESS(send_msg, "Send REPLy message");
 AUTOSTART_PROCESSES(&range_process);
 #define UUS_TO_DWT_TIME     65536
 
@@ -104,15 +105,37 @@ void tx_ok_cb(const dwt_cb_data_t *cb_data){
 }
 
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
-  dwt_rxenable(DWT_START_RX_IMMEDIATE);
-  printf("RX OK");
+  process_start(&send_msg, NULL);
+  
 }
 
 
 void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
-  printf("RX ERR");
+  printf("RX ERR\n");
+}
+
+
+PROCESS_THREAD(send_msg, ev, data){
+  static struct etimer et;
+  PROCESS_BEGIN();
+  
+
+  etimer_set(&et, 9);
+  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  printf("Sending message\n");
+  dwt_forcetrxoff();
+  dwt_writetxdata(sizeof(msg), msg, 0);
+  dwt_writetxfctrl(sizeof(msg), 0, 0);
+  if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
+    printf("TX ERR\n");
+  }
+
+  etimer_set(&et, 8);
+  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  
+  PROCESS_END();
 }
 
 
@@ -127,7 +150,6 @@ PROCESS_THREAD(range_process, ev, data)
   static int status;
 
   PROCESS_BEGIN();
-  static struct etimer et;
   dw1000_set_isr(dwt_isr);
   dwt_setinterrupt(DWT_INT_TFRS | DWT_INT_RFCG | DWT_INT_RFTO | DWT_INT_RXPTO |
                   DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
@@ -155,11 +177,12 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   while (1){
     
-    // dwt_forcetrxoff();
-    // dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    // etimer_set(&et, SCAN_DURATION);
-    // PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    // dwt_forcetrxoff();
+    dwt_forcetrxoff();
+    printf("Start Scanning\n");
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    etimer_set(&et, SCAN_DURATION);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    dwt_forcetrxoff();
     etimer_set(&et, SCAN_INTERVAL -  SCAN_DURATION);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     
