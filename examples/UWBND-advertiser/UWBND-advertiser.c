@@ -164,11 +164,10 @@ PROCESS_THREAD(range_process, ev, data){
   wac1_detected = 0;
   wac2_detected = 0;
   while (1){
+    wac1_detected = 0;
+    wac2_detected = 0;
     while (current_time - start_time < 1000){
       current_time = clock_time();
-      wac1_detected = 0;
-      wac2_detected = 0;
-
       config.rxCode = 3;
       config.prf = DWT_PRF_16M;
       dwt_configure(&config);
@@ -176,14 +175,14 @@ PROCESS_THREAD(range_process, ev, data){
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
       dwt_rxreset();
-      printf("TEST1\n");
+      printf("TEST1 %x\n", dwt_read32bitreg(SYS_STATUS_ID));
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       etimer_set(&et, 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       status_reg = dwt_read32bitreg(SYS_STATUS_ID);
       if (status_reg & SYS_STATUS_ALL_RX_ERR){
         printf("WAC1\n");
-        wac1_detected = 1;
+        wac1_detected += 1;
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
       }else{
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
@@ -201,23 +200,21 @@ PROCESS_THREAD(range_process, ev, data){
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
       dwt_rxreset();
-      printf("TEST2\n");
+      printf("TEST2 %x\n", dwt_read32bitreg(SYS_STATUS_ID));
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       etimer_set(&et, 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       status_reg = dwt_read32bitreg(SYS_STATUS_ID);
       if (status_reg & SYS_STATUS_ALL_RX_ERR){
         printf("WAC2\n");
-        wac2_detected = 1;
+        wac2_detected += 1;
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
       }else{
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
       }
-      if (wac1_detected == 1 && wac2_detected == 1){
-        break;
-      }
     }
-    if (wac1_detected == 1 && wac2_detected == 1){
+    printf("TEST INFO %d, %d\n", wac1_detected, wac2_detected);
+    if (wac1_detected > 15 && wac2_detected > 15){
       printf("WAK DETECTION COMPLETED\n");
       break;
     }else{
@@ -232,6 +229,7 @@ PROCESS_THREAD(range_process, ev, data){
       etimer_set(&et, 100);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       start_time = clock_time();
+      current_time = clock_time();
 
     }
   }
