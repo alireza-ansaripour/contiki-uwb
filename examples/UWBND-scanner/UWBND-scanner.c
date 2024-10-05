@@ -80,11 +80,11 @@ uint8_t msg[7] = {0xbe, 0, 0, 0, 0, 0, 0};
 
 dwt_config_t config = {
     5, /* Channel number. */
-    DWT_PRF_64M, /* Pulse repetition frequency. */
+    DWT_PRF_16M, /* Pulse repetition frequency. */
     DWT_PLEN_4096, /* Preamble length. Used in TX only. */
     DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
-    9, /* TX preamble code. Used in TX only. */
-    9, /* RX preamble code. Used in RX only. */
+    3, /* TX preamble code. Used in TX only. */
+    3, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
     DWT_BR_6M8, /* Data rate. */
     DWT_PHRMODE_STD, /* PHY header mode. */
