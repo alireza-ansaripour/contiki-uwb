@@ -177,12 +177,14 @@ PROCESS_THREAD(range_process, ev, data){
   {
   case 129:
   case 74:
+  case 63:
     config.rxCode = 3;
     config.prf = DWT_PRF_16M;
     break;
 
   case 130:
   case 71:
+  case 52:
     config.rxCode = 9;
     config.prf = DWT_PRF_64M;
     break;

@@ -294,12 +294,12 @@ PROCESS_THREAD(range_process, ev, data){
       status_reg = dwt_read32bitreg(SYS_STATUS_ID);
       if (status_reg & SYS_STATUS_ALL_RX_ERR){
         printf("WAC2 detected\n");
-        detection_status = RX_WAK_P1;
+        detection_status = WAITING;
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
       }else{
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
       }
-      detection_status = RX_WAK_P1;
+      detection_status = WAITING;
       
     }
     if (detection_status == WAITING){
