@@ -173,23 +173,28 @@ PROCESS_THREAD(range_process, ev, data){
   //                 DWT_INT_ARFE, 1);
   
 
-  switch (node_id)
-  {
-  case 129:
-  case 74:
-    config.rxCode = 3;
-    config.prf = DWT_PRF_16M;
-    break;
+  // switch (node_id)
+  // {
+  // case 129:
+  // case 74:
+  //   config.rxCode = 3;
+  //   config.prf = DWT_PRF_16M;
+  //   break;
 
-  case 130:
-  case 71:
-    config.rxCode = 9;
-    config.prf = DWT_PRF_64M;
-    break;
+  // case 130:
+  // case 71:
+  //   config.rxCode = 9;
+  //   config.prf = DWT_PRF_64M;
+  //   break;
   
-  default:
-    break;
-  }
+  // default:
+  //   break;
+  // }
+
+
+
+  config.rxCode = 3;
+  config.prf = DWT_PRF_16M;
   
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
@@ -199,9 +204,8 @@ PROCESS_THREAD(range_process, ev, data){
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
   while (1){
-    
     dwt_forcetrxoff();
-    etimer_set(&et, 2);
+    etimer_set(&et, 500);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     dwt_forcetrxoff();
     dwt_rxreset();

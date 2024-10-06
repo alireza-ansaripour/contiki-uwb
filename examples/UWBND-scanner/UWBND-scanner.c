@@ -91,11 +91,11 @@ uint32_t adv_rx_time, rep_tx_time;
 
 dwt_config_t config = {
     5, /* Channel number. */
-    DWT_PRF_64M, /* Pulse repetition frequency. */
+    DWT_PRF_16M, /* Pulse repetition frequency. */
     DWT_PLEN_4096, /* Preamble length. Used in TX only. */
     DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
-    9, /* TX preamble code. Used in TX only. */
-    9, /* RX preamble code. Used in RX only. */
+    3, /* TX preamble code. Used in TX only. */
+    3, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
     DWT_BR_6M8, /* Data rate. */
     DWT_PHRMODE_STD, /* PHY header mode. */
@@ -172,23 +172,23 @@ PROCESS_THREAD(range_process, ev, data)
   }
 
 
-  switch (node_id)
-  {
-  case 128:
-  case 77:
-      printf("here setting config\n");
-      config.txCode = 3;
-      config.prf = DWT_PRF_16M;
-    break;
+  // switch (node_id)
+  // {
+  // case 128:
+  // case 77:
+  //     printf("here setting config\n");
+  //     config.txCode = 3;
+  //     config.prf = DWT_PRF_16M;
+  //   break;
   
-  case 162:
-      config.txCode = 9;
-      config.prf = DWT_PRF_64M;
-    break;
+  // case 162:
+  //     config.txCode = 9;
+  //     config.prf = DWT_PRF_64M;
+  //   break;
 
-  default:
-    break;
-  }
+  // default:
+  //   break;
+  // }
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
