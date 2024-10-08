@@ -161,8 +161,6 @@ PROCESS_THREAD(range_process, ev, data)
   //                 DWT_INT_ARFE, 1);
   
   // dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
-  etimer_set(&et, 100);
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
 
   if(deployment_set_node_id_ieee_addr()){

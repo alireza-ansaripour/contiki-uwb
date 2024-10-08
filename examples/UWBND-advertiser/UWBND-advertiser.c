@@ -62,10 +62,13 @@ typedef enum{
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
 
-#define IPI                             500
+#define IPI                             100
 #define SNIFF_INTERVAL                  IPI
 #define RAPID_SNIFF_INTERVAL            IPI
 #define TIMEOUT_MS                      IPI
+
+#define SNIFF_LEN                       3
+#define SNIFF_LEN_TEST                  600
 
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
@@ -127,25 +130,19 @@ PROCESS_THREAD(range_process, ev, data){
   
   PROCESS_BEGIN();
 
-  dw1000_arch_reset();
-  dw1000_arch_init();
-
-  /* Set the default configuration */
-  dw1000_reset_cfg();
-
   // dwt_setcallbacks(NULL, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
   if(deployment_set_node_id_ieee_addr()){
-    printf("NODE addr set successfully: %d\n", node_id);
+    printf("NODE addr set successfully SNIFF_LEN: %d\n", SNIFF_LEN);
   }else{
     printf("Failed to set nodeID\n");
   }
-
+  dwt_softreset();
 
   printf("STARTING advertiser %d\n", node_id);
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
-  dwt_setpreambledetecttimeout(3);  
+  dwt_setpreambledetecttimeout(SNIFF_LEN_TEST);  
   payload[2] = node_id;
   clock_init();
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
@@ -155,7 +152,8 @@ PROCESS_THREAD(range_process, ev, data){
   //                 DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
   //                 DWT_INT_ARFE, 1);
   
-
+  etimer_set(&et, 500);
+  PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
   detection_status = RX_WAK_P1;
   wac1_sniff_interval = SNIFF_INTERVAL;
@@ -163,76 +161,79 @@ PROCESS_THREAD(range_process, ev, data){
   current_time = clock_time();
   wac1_detected = 0;
   wac2_detected = 0;
-  // while (1){
-  //   wac1_detected = 0;
-  //   wac2_detected = 0;
-  //   while (current_time - start_time < 1000){
-  //     current_time = clock_time();
-  //     config.rxCode = 3;
-  //     config.prf = DWT_PRF_16M;
-  //     dwt_configure(&config);
-  //     etimer_set(&et, 10);
-  //     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-  //     dwt_forcetrxoff();
-  //     dwt_rxreset();
-  //     printf("TEST1 %x\n", dwt_read32bitreg(SYS_STATUS_ID));
-  //     dwt_rxenable(DWT_START_RX_IMMEDIATE);
-  //     etimer_set(&et, 3);
-  //     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-  //     status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-  //     if (status_reg & SYS_STATUS_ALL_RX_ERR){
-  //       printf("WAC1\n");
-  //       wac1_detected += 1;
-  //       dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-  //     }else{
-  //       dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
-  //     }
+  while (1){
+    wac1_detected = 0;
+    wac2_detected = 0;
+    while (current_time - start_time < 1000){
+      current_time = clock_time();
+      config.rxCode = 3;
+      config.prf = DWT_PRF_16M;
+      dwt_configure(&config);
+      dwt_configuretxrf(&txConf);
+      dwt_setpreambledetecttimeout(SNIFF_LEN_TEST);  
+      etimer_set(&et, 10);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      dwt_forcetrxoff();
+      dwt_rxreset();
+      // printf("TEST1 %x\n", dwt_read32bitreg(SYS_STATUS_ID));
+      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      etimer_set(&et, 3);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+      if (status_reg & SYS_STATUS_ALL_RX_ERR){
+        // printf("WAC1\n");
+        wac1_detected += 1;
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+      }else{
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
+      }
       
-  //     etimer_set(&et, 10);
-  //     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      etimer_set(&et, 10);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
-  //     config.rxCode = 9;
-  //     config.prf = DWT_PRF_64M;
-  //     config.rxPAC = DWT_PAC8;
-  //     dwt_configure(&config);
-  //     dwt_setpreambledetecttimeout(3);  
-  //     etimer_set(&et, 10);
-  //     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-  //     dwt_forcetrxoff();
-  //     dwt_rxreset();
-  //     printf("TEST2 %x\n", dwt_read32bitreg(SYS_STATUS_ID));
-  //     dwt_rxenable(DWT_START_RX_IMMEDIATE);
-  //     etimer_set(&et, 3);
-  //     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-  //     status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-  //     if (status_reg & SYS_STATUS_ALL_RX_ERR){
-  //       printf("WAC2\n");
-  //       wac2_detected += 1;
-  //       dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
-  //     }else{
-  //       dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
-  //     }
-  //   }
-  //   printf("TEST INFO %d, %d\n", wac1_detected, wac2_detected);
-  //   if (wac1_detected > 15 && wac2_detected > 15){
-  //     printf("WAK DETECTION COMPLETED\n");
-  //     break;
-  //   }else{
-  //     printf("restarting\n");
-  //     dw1000_arch_reset();
-  //     dw1000_arch_init();
+      config.rxCode = 9;
+      config.prf = DWT_PRF_64M;
+      config.rxPAC = DWT_PAC8;
+      dwt_configure(&config);
+      dwt_configuretxrf(&txConf);
+      dwt_setpreambledetecttimeout(SNIFF_LEN_TEST);  
+      etimer_set(&et, 10);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      dwt_forcetrxoff();
+      dwt_rxreset();
+      // printf("TEST2 %x\n", dwt_read32bitreg(SYS_STATUS_ID));
+      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      etimer_set(&et, 3);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+      if (status_reg & SYS_STATUS_ALL_RX_ERR){
+        // printf("WAC2\n");
+        wac2_detected += 1;
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
+      }else{
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
+      }
+    }
+    printf("TEST INFO %d, %d\n", wac1_detected, wac2_detected);
+    if (wac1_detected > 15 && wac2_detected > 15){
+      printf("WAK DETECTION COMPLETED\n");
+      break;
+    }else{
+      printf("restarting\n");
+      dw1000_arch_reset();
+      dw1000_arch_init();
 
-  //     dw1000_reset_cfg();
-  //     dwt_setpreambledetecttimeout(3);  
-  //     start_time = current_time;
+      dw1000_reset_cfg();
+      dwt_setpreambledetecttimeout(SNIFF_LEN_TEST);  
+      start_time = current_time;
       
-  //     etimer_set(&et, 100);
-  //     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-  //     start_time = clock_time();
-  //     current_time = clock_time();
+      etimer_set(&et, 100);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      start_time = clock_time();
+      current_time = clock_time();
 
-  //   }
-  // }
+    }
+  }
 
 
   printf("END RESULT %d\n", wac1_detected == 1 && wac2_detected == 1);
@@ -241,10 +242,14 @@ PROCESS_THREAD(range_process, ev, data){
 
 
   while (1){
+    
+    dwt_softreset();
     if (detection_status == RX_WAK_P1){
       config.rxCode = 3;
       config.prf = DWT_PRF_16M;
+      // dw1000_wakeup();
       dwt_configure(&config);
+      dwt_configuretxrf(&txConf);
       etimer_set(&et, wac1_sniff_interval - 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
@@ -281,8 +286,10 @@ PROCESS_THREAD(range_process, ev, data){
       config.rxCode = 9;
       config.prf = DWT_PRF_64M;
       config.rxPAC = DWT_PAC8;
+      // dw1000_wakeup();
       dwt_configure(&config);
-      dwt_setpreambledetecttimeout(3);  
+      dwt_configuretxrf(&txConf);
+      dwt_setpreambledetecttimeout(SNIFF_LEN);  
       etimer_set(&et, RAPID_SNIFF_INTERVAL - 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
@@ -294,12 +301,12 @@ PROCESS_THREAD(range_process, ev, data){
       status_reg = dwt_read32bitreg(SYS_STATUS_ID);
       if (status_reg & SYS_STATUS_ALL_RX_ERR){
         printf("WAC2 detected\n");
-        detection_status = RX_WAK_P1;
+        detection_status = WAITING;
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
       }else{
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
       }
-      detection_status = RX_WAK_P1;
+      detection_status = WAITING;
       
     }
     if (detection_status == WAITING){
