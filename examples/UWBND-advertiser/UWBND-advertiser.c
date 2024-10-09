@@ -62,7 +62,7 @@ typedef enum{
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
 
-#define IPI                             1000
+#define IPI                             100
 #define SNIFF_INTERVAL                  IPI
 #define RAPID_SNIFF_INTERVAL            IPI
 #define TIMEOUT_MS                      IPI
@@ -159,92 +159,18 @@ PROCESS_THREAD(range_process, ev, data){
 
   detection_status = RX_WAK_P1;
   wac1_sniff_interval = SNIFF_INTERVAL;
-  start_time = clock_time();
-  current_time = clock_time();
-  wac1_detected = 0;
-  wac2_detected = 0;
-  while (1){
-    wac1_detected = 0;
-    wac2_detected = 0;
-    while (current_time - start_time < 1000){
-      current_time = clock_time();
-      config.rxCode = 3;
-      config.prf = DWT_PRF_16M;
-      dwt_configure(&config);
-      etimer_set(&et, 10);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      dwt_forcetrxoff();
-      dwt_rxreset();
-      printf("TEST1 %x\n", dwt_read32bitreg(SYS_STATUS_ID));
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 3);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-      if (status_reg & SYS_STATUS_ALL_RX_ERR){
-        printf("WAC1\n");
-        wac1_detected += 1;
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-      }else{
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
-      }
-      
-      etimer_set(&et, 10);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-
-      config.rxCode = 9;
-      config.prf = DWT_PRF_64M;
-      config.rxPAC = DWT_PAC8;
-      dwt_configure(&config);
-      dwt_setpreambledetecttimeout(3);  
-      etimer_set(&et, 10);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      dwt_forcetrxoff();
-      dwt_rxreset();
-      printf("TEST2 %x\n", dwt_read32bitreg(SYS_STATUS_ID));
-      dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 3);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-      if (status_reg & SYS_STATUS_ALL_RX_ERR){
-        printf("WAC2\n");
-        wac2_detected += 1;
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
-      }else{
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
-      }
-    }
-    printf("TEST INFO %d, %d\n", wac1_detected, wac2_detected);
-    if (wac1_detected > 15 && wac2_detected > 15){
-      printf("WAK DETECTION COMPLETED\n");
-      break;
-    }else{
-      printf("restarting\n");
-      dw1000_arch_reset();
-      dw1000_arch_init();
-
-      dw1000_reset_cfg();
-      dwt_setpreambledetecttimeout(3);  
-      start_time = current_time;
-      
-      etimer_set(&et, 100);
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      start_time = clock_time();
-      current_time = clock_time();
-
-    }
-  }
-
-
-  printf("END RESULT %d\n", wac1_detected == 1 && wac2_detected == 1);
   
 
-
-
   while (1){
+    dw1000_spi_set_slow_rate();
+    dwt_softreset();
+    dw1000_spi_set_fast_rate();
     if (detection_status == RX_WAK_P1){
       config.rxCode = 3;
       config.prf = DWT_PRF_16M;
       dwt_configure(&config);
+      dwt_configuretxrf(&txConf);
+      dwt_setpreambledetecttimeout(3); 
       etimer_set(&et, wac1_sniff_interval - 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
@@ -257,13 +183,11 @@ PROCESS_THREAD(range_process, ev, data){
       if (status_reg & SYS_STATUS_ALL_RX_ERR){
         printf("WAC1 detected\n");
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+        detection_status = RX_WAK_P2;
       }else{
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
       }
       wac1_sniff_interval = SNIFF_INTERVAL;
-      detection_status = RX_WAK_P2;
-      continue;
-
     }
     if (detection_status == RX_WAK_P2){
       current_time = clock_time();
@@ -282,6 +206,7 @@ PROCESS_THREAD(range_process, ev, data){
       config.prf = DWT_PRF_64M;
       config.rxPAC = DWT_PAC8;
       dwt_configure(&config);
+      dwt_configuretxrf(&txConf);
       dwt_setpreambledetecttimeout(3);  
       etimer_set(&et, RAPID_SNIFF_INTERVAL - 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
@@ -294,10 +219,21 @@ PROCESS_THREAD(range_process, ev, data){
       status_reg = dwt_read32bitreg(SYS_STATUS_ID);
       if (status_reg & SYS_STATUS_ALL_RX_ERR){
         printf("WAC2 detected\n");
-        detection_status = RX_WAK_P1;
+        
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
       }else{
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
+        config.rxCode = 1;
+        config.prf = DWT_PRF_16M;
+        config.rxPAC = DWT_PAC8;
+        dwt_configure(&config);
+        dwt_configuretxrf(&txConf);
+        dwt_forcetrxoff();
+        dwt_rxenable(DWT_START_RX_IMMEDIATE);
+        etimer_set(&et, 3);
+        PROCESS_WAIT_UNTIL(etimer_expired(&et));
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
+        
       }
       detection_status = RX_WAK_P1;
       
