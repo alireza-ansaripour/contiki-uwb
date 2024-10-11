@@ -72,7 +72,8 @@ typedef enum{
 
 #define IPI              5
 #define WAC1_TIME        505
-
+#define WAC2_TIME        52
+#define REPS_PER_SESSION 2
 /*---------------------------------------------------------------------------*/
 
 uint8_t payload[10];
@@ -85,6 +86,8 @@ DETECTION_STATUS detection_status = CCA_1;
 uint32_t WaC_start_time, WaC_current_time;
 clock_time_t scan_init_time, scan_end_time;
 clock_time_t wac_start_time, current_time;
+int reps = 0;
+
 
 clock_time_t listen_begin_time, listen_end_time;
 uint32_t adv_rx_time, rep_tx_time;
@@ -183,14 +186,16 @@ PROCESS_THREAD(range_process, ev, data)
   
   dwt_setpreambledetecttimeout(0);
   index_cnt = 0;
+  printf("_______________________ NEW SESSION ____________________\n");
 
   while (1){
     
     /* ------------------------ Sending WaC1 --------------------------------*/
+    reps++;
     printf("Start sending WaK1\n");
     dwt_forcetrxoff();
     config.prf = DWT_PRF_16M;
-    config.txCode = 3;
+    config.txCode = 4;
     dwt_configure(&config);
     wac_start_time = clock_time();
     current_time = clock_time();
@@ -214,13 +219,13 @@ PROCESS_THREAD(range_process, ev, data)
     /* ----------------------- Changing to WaC2 -------------------------------------*/
     printf("Start sending WaK2\n");
     config.prf = DWT_PRF_64M;
-    config.txCode = 9;
+    config.txCode = 13;
     dwt_configure(&config);
     dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
     wac_start_time = clock_time();
     current_time = clock_time();
-    while (current_time - wac_start_time < WAC1_TIME){
+    while (current_time - wac_start_time < WAC2_TIME){
       dwt_forcetrxoff();
       memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
       dwt_writetxdata(sizeof(msg), msg, 0);
@@ -234,10 +239,22 @@ PROCESS_THREAD(range_process, ev, data)
       }
       current_time = clock_time();
     }
+    printf("Listening....\n");
+    etimer_set(&et, WAC2_TIME + 10); // TX WaC1
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
+    if (reps == REPS_PER_SESSION){
+      etimer_set(&et, 10 * CLOCK_SECOND); // TX WaC1
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      printf("_______________________ NEW SESSION ____________________\n");
+      reps = 0;
+    }
+      
 
 
     /*------------------------------------------------------------------------------*/
     dwt_forcetrxoff();
+    
   }
   
 

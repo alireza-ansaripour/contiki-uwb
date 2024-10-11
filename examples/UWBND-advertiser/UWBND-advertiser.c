@@ -160,7 +160,7 @@ PROCESS_THREAD(range_process, ev, data){
     dwt_softreset();
     dw1000_spi_set_fast_rate();
     if (detection_status == RX_WAK_P1){
-      config.rxCode = 3;
+      config.rxCode = 4;
       config.prf = DWT_PRF_16M;
       dwt_configure(&config);
       dwt_configuretxrf(&txConf);
@@ -169,7 +169,6 @@ PROCESS_THREAD(range_process, ev, data){
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
       dwt_rxreset();
-      printf("Sniffing1\n");
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       etimer_set(&et, 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
@@ -199,9 +198,9 @@ PROCESS_THREAD(range_process, ev, data){
         continue;
       }
 
-      config.rxCode = 9;
+      config.rxCode = 13;
       config.prf = DWT_PRF_64M;
-      config.rxPAC = DWT_PAC8;
+      // config.rxPAC = DWT_PAC8;
       dwt_configure(&config);
       dwt_configuretxrf(&txConf);
       dwt_setpreambledetecttimeout(3);  
@@ -209,7 +208,6 @@ PROCESS_THREAD(range_process, ev, data){
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
       dwt_rxreset();
-      printf("Sniffing2\n");
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       etimer_set(&et, 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
