@@ -62,9 +62,9 @@ typedef enum{
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
 
-#define IPI                             100
+#define IPI                             500
 #define SNIFF_INTERVAL                  IPI
-#define RAPID_SNIFF_INTERVAL            IPI
+#define RAPID_SNIFF_INTERVAL            50
 #define TIMEOUT_MS                      IPI
 
 /*---------------------------------------------------------------------------*/
@@ -72,7 +72,7 @@ dwt_config_t config = {
     5, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_256, /* Preamble length. Used in TX only. */
-    DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
+    DWT_PAC16, /* Preamble acquisition chunk size. Used in RX only. */
     9, /* TX preamble code. Used in TX only. */
     9, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
@@ -90,7 +90,7 @@ dwt_txconfig_t txConf = {
 uint8_t payload[] = {0xad, 0, 0, 0, 0, 0};
 uint8_t rx_payload[20];
 DETECTION_STATUS detection_status = RX_WAK_P1;
-clock_time_t start_time, current_time;
+clock_time_t current_time, wac1_detection_time;
 clock_time_t timeOut = TIMEOUT_MS;
 int wac1_sniff_interval = SNIFF_INTERVAL;
 
@@ -126,12 +126,6 @@ PROCESS_THREAD(range_process, ev, data){
   
   
   PROCESS_BEGIN();
-
-  dw1000_arch_reset();
-  dw1000_arch_init();
-
-  /* Set the default configuration */
-  dw1000_reset_cfg();
 
   // dwt_setcallbacks(NULL, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
   if(deployment_set_node_id_ieee_addr()){
@@ -182,25 +176,28 @@ PROCESS_THREAD(range_process, ev, data){
       status_reg = dwt_read32bitreg(SYS_STATUS_ID);
       if (status_reg & SYS_STATUS_ALL_RX_ERR){
         printf("WAC1 detected\n");
+        wac1_detection_time = clock_time();
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
         detection_status = RX_WAK_P2;
       }else{
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
       }
       wac1_sniff_interval = SNIFF_INTERVAL;
+      
+      continue;
     }
     if (detection_status == RX_WAK_P2){
       current_time = clock_time();
-      // if (current_time - wac1_detection_time > timeOut){
-      //   printf("TO2\n");
-      //   // config.rxCode = 1;
-      //   // config.prf = DWT_PRF_16M;
-      //   // dwt_forcetrxoff();
-      //   // dwt_configure(&config);
-      //   detection_status = RX_WAK_P1;
-      //   // wac1_sniff_interval = 10;
-      //   continue;
-      // }
+      if (current_time - wac1_detection_time > timeOut){
+        printf("TO2\n");
+        // config.rxCode = 1;
+        // config.prf = DWT_PRF_16M;
+        // dwt_forcetrxoff();
+        // dwt_configure(&config);
+        detection_status = RX_WAK_P1;
+        // wac1_sniff_interval = 10;
+        continue;
+      }
 
       config.rxCode = 9;
       config.prf = DWT_PRF_64M;
@@ -219,23 +216,13 @@ PROCESS_THREAD(range_process, ev, data){
       status_reg = dwt_read32bitreg(SYS_STATUS_ID);
       if (status_reg & SYS_STATUS_ALL_RX_ERR){
         printf("WAC2 detected\n");
+        detection_status = WAITING;
         
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
       }else{
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
-        config.rxCode = 1;
-        config.prf = DWT_PRF_16M;
-        config.rxPAC = DWT_PAC8;
-        dwt_configure(&config);
-        dwt_configuretxrf(&txConf);
-        dwt_forcetrxoff();
-        dwt_rxenable(DWT_START_RX_IMMEDIATE);
-        etimer_set(&et, 3);
-        PROCESS_WAIT_UNTIL(etimer_expired(&et));
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
-        
       }
-      detection_status = RX_WAK_P1;
+      
       
     }
     if (detection_status == WAITING){

@@ -71,7 +71,7 @@ typedef enum{
 /*---------------------------------------------------------------------------*/
 
 #define IPI              5
-#define WAC1_TIME        500
+#define WAC1_TIME        505
 
 /*---------------------------------------------------------------------------*/
 
@@ -84,7 +84,7 @@ static struct Scan_report report;
 DETECTION_STATUS detection_status = CCA_1;
 uint32_t WaC_start_time, WaC_current_time;
 clock_time_t scan_init_time, scan_end_time;
-clock_time_t wac1_start_time, wac2_start_time;
+clock_time_t wac_start_time, current_time;
 
 clock_time_t listen_begin_time, listen_end_time;
 uint32_t adv_rx_time, rep_tx_time;
@@ -170,25 +170,6 @@ PROCESS_THREAD(range_process, ev, data)
   }else{
     printf("Failed to set nodeID\n");
   }
-
-
-  switch (node_id)
-  {
-  case 128:
-  case 63:
-      printf("here setting config\n");
-      config.txCode = 3;
-      config.prf = DWT_PRF_16M;
-    break;
-  
-  case 162:
-      config.txCode = 9;
-      config.prf = DWT_PRF_64M;
-    break;
-
-  default:
-    break;
-  }
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
@@ -206,41 +187,55 @@ PROCESS_THREAD(range_process, ev, data)
   while (1){
     
     /* ------------------------ Sending WaC1 --------------------------------*/
+    printf("Start sending WaK1\n");
+    dwt_forcetrxoff();
+    config.prf = DWT_PRF_16M;
+    config.txCode = 3;
+    dwt_configure(&config);
+    wac_start_time = clock_time();
+    current_time = clock_time();
+    while (current_time - wac_start_time < WAC1_TIME){
+      dwt_forcetrxoff();
+      memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
+      dwt_writetxdata(sizeof(msg), msg, 0);
+      dwt_writetxfctrl(sizeof(msg), 0, 0);
+      dwt_starttx(DWT_START_TX_IMMEDIATE);
+      etimer_set(&et, IPI); // TX WaC1
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+      if (status_reg & SYS_STATUS_TXFRS){
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
+      }
+      current_time = clock_time();
+    }
+    
     
     dwt_forcetrxoff();
-    // config.prf = DWT_PRF_64M;
-    // config.txCode = 9;
-    // dwt_configure(&config);
-    wac1_start_time = clock_time();
-    dwt_forcetrxoff();
-    memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
-    dwt_writetxdata(sizeof(msg), msg, 0);
-    dwt_writetxfctrl(sizeof(msg), 0, 0);
-    dwt_starttx(DWT_START_TX_IMMEDIATE);
-    etimer_set(&et, IPI); // TX WaC1
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-    if (status_reg & SYS_STATUS_TXFRS){
-      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
-    }
-    dwt_forcetrxoff();
     /* ----------------------- Changing to WaC2 -------------------------------------*/
-    // printf("Start sending WaK2: %d, %d\n", scan_init_time, counter);
-    // config.prf = DWT_PRF_16M;
-    // config.txCode = 1;
-    // dwt_configure(&config);
+    printf("Start sending WaK2\n");
+    config.prf = DWT_PRF_64M;
+    config.txCode = 9;
+    dwt_configure(&config);
     dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
-    stop_trans = 0;
-    detection_status = WAK_2;
-    dwt_starttx(DWT_START_TX_IMMEDIATE);
-    etimer_set(&et, IPI); // TX WaC2
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-    if (status_reg & SYS_STATUS_TXFRS){
-      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
+    wac_start_time = clock_time();
+    current_time = clock_time();
+    while (current_time - wac_start_time < WAC1_TIME){
+      dwt_forcetrxoff();
+      memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
+      dwt_writetxdata(sizeof(msg), msg, 0);
+      dwt_writetxfctrl(sizeof(msg), 0, 0);
+      dwt_starttx(DWT_START_TX_IMMEDIATE);
+      etimer_set(&et, IPI); // TX WaC1
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+      if (status_reg & SYS_STATUS_TXFRS){
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
+      }
+      current_time = clock_time();
     }
-    stop_trans = 1; // Once done TX start RX
+
+
     /*------------------------------------------------------------------------------*/
     dwt_forcetrxoff();
   }
