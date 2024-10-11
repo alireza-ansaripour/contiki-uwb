@@ -183,6 +183,7 @@ PROCESS_THREAD(range_process, ev, data){
 
   case 130:
   case 71:
+  
     config.rxCode = 9;
     config.prf = DWT_PRF_64M;
     break;

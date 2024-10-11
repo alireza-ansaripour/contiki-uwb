@@ -176,6 +176,7 @@ PROCESS_THREAD(range_process, ev, data)
   {
   case 128:
   case 63:
+  case 164:
       printf("here setting config\n");
       config.txCode = 3;
       config.prf = DWT_PRF_16M;

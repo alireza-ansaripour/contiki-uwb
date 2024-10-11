@@ -127,12 +127,6 @@ PROCESS_THREAD(range_process, ev, data){
   
   PROCESS_BEGIN();
 
-  dw1000_arch_reset();
-  dw1000_arch_init();
-
-  /* Set the default configuration */
-  dw1000_reset_cfg();
-
   // dwt_setcallbacks(NULL, &rx_ok_cb, &rx_to_cb, &rx_err_cb);
   if(deployment_set_node_id_ieee_addr()){
     printf("NODE addr set successfully: %d\n", node_id);
@@ -183,11 +177,13 @@ PROCESS_THREAD(range_process, ev, data){
       if (status_reg & SYS_STATUS_ALL_RX_ERR){
         printf("WAC1 detected\n");
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-        detection_status = RX_WAK_P2;
+        
       }else{
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
       }
       wac1_sniff_interval = SNIFF_INTERVAL;
+      detection_status = RX_WAK_P2;
+      continue;
     }
     if (detection_status == RX_WAK_P2){
       current_time = clock_time();
@@ -223,17 +219,6 @@ PROCESS_THREAD(range_process, ev, data){
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
       }else{
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
-        config.rxCode = 1;
-        config.prf = DWT_PRF_16M;
-        config.rxPAC = DWT_PAC8;
-        dwt_configure(&config);
-        dwt_configuretxrf(&txConf);
-        dwt_forcetrxoff();
-        dwt_rxenable(DWT_START_RX_IMMEDIATE);
-        etimer_set(&et, 3);
-        PROCESS_WAIT_UNTIL(etimer_expired(&et));
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
-        
       }
       detection_status = RX_WAK_P1;
       
