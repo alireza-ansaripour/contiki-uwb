@@ -97,8 +97,8 @@ dwt_config_t config = {
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_4096, /* Preamble length. Used in TX only. */
     DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
-    9, /* TX preamble code. Used in TX only. */
-    9, /* RX preamble code. Used in RX only. */
+    13, /* TX preamble code. Used in TX only. */
+    13, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
     DWT_BR_6M8, /* Data rate. */
     DWT_PHRMODE_STD, /* PHY header mode. */
@@ -132,8 +132,8 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
   if (payload[0] == 0xad){
     adv_rx_time = dwt_readrxtimestamphi32();
     uint16_t *n_id = (uint16_t *) &payload[2];
-    report.ids[index_cnt++] = *n_id;
-    detection_status = SEND_RPLY;
+    printf("ADV received %d\n", *n_id);
+    // report.ids[index_cnt++] = *n_id;
   }
 }
 
@@ -142,7 +142,7 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   error_cnt++;
-  // printf("TX OK Sender\n");
+  printf("ERR\n");
 }
 
 
@@ -158,12 +158,12 @@ PROCESS_THREAD(range_process, ev, data)
 
   PROCESS_BEGIN();
   static struct etimer et;
-  // dw1000_set_isr(dwt_isr);
-  // dwt_setinterrupt(DWT_INT_TFRS | DWT_INT_RFCG | DWT_INT_RFTO | DWT_INT_RXPTO |
-  //                 DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
-  //                 DWT_INT_ARFE, 1);
+  dw1000_set_isr(dwt_isr);
+  dwt_setinterrupt(DWT_INT_RFCG | DWT_INT_RFTO | DWT_INT_RXPTO |
+                  DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
+                  DWT_INT_ARFE, 1);
   
-  // dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
+  dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
   etimer_set(&et, 100);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
@@ -196,6 +196,7 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_forcetrxoff();
     config.prf = DWT_PRF_16M;
     config.txCode = 4;
+    config.rxCode = 4;
     dwt_configure(&config);
     wac_start_time = clock_time();
     current_time = clock_time();
@@ -220,6 +221,7 @@ PROCESS_THREAD(range_process, ev, data)
     printf("Start sending WaK2\n");
     config.prf = DWT_PRF_64M;
     config.txCode = 13;
+    config.rxCode = 13;
     dwt_configure(&config);
     dwt_writetxdata(sizeof(msg), msg, 0);
     dwt_writetxfctrl(sizeof(msg), 0, 0);
@@ -240,6 +242,9 @@ PROCESS_THREAD(range_process, ev, data)
       current_time = clock_time();
     }
     printf("Listening....\n");
+    dwt_forcetrxoff();
+    dwt_rxreset();
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
     etimer_set(&et, WAC2_TIME + 10); // TX WaC1
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 

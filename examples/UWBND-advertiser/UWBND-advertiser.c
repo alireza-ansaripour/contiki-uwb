@@ -156,11 +156,12 @@ PROCESS_THREAD(range_process, ev, data){
   
 
   while (1){
-    dw1000_spi_set_slow_rate();
-    dwt_softreset();
-    dw1000_spi_set_fast_rate();
+    // dw1000_spi_set_slow_rate();
+    // dwt_softreset();
+    // dw1000_spi_set_fast_rate();
     if (detection_status == RX_WAK_P1){
       config.rxCode = 4;
+      config.txCode = 4;
       config.prf = DWT_PRF_16M;
       dwt_configure(&config);
       dwt_configuretxrf(&txConf);
@@ -199,6 +200,7 @@ PROCESS_THREAD(range_process, ev, data){
       }
 
       config.rxCode = 13;
+      config.txCode = 13;
       config.prf = DWT_PRF_64M;
       // config.rxPAC = DWT_PAC8;
       dwt_configure(&config);
