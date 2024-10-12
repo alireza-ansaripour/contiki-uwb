@@ -73,7 +73,7 @@ typedef enum{
 #define IPI              5
 #define WAC1_TIME        505
 #define WAC2_TIME        52
-#define REPS_PER_SESSION 2
+#define REPS_PER_SESSION 3
 /*---------------------------------------------------------------------------*/
 
 uint8_t payload[10];
@@ -133,7 +133,12 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
     adv_rx_time = dwt_readrxtimestamphi32();
     uint16_t *n_id = (uint16_t *) &payload[2];
     printf("ADV received %d\n", *n_id);
-    // report.ids[index_cnt++] = *n_id;
+    for(int i = 0 ; i <= index_cnt; i++){
+      if(report.ids[i] == *n_id){
+        return;
+      }
+    }
+    report.ids[index_cnt++] = *n_id;
   }
 }
 
@@ -217,7 +222,7 @@ PROCESS_THREAD(range_process, ev, data)
     
     
     dwt_forcetrxoff();
-    /* ----------------------- Changing to WaC2 -------------------------------------*/
+    // /* ----------------------- Changing to WaC2 -------------------------------------*/
     printf("Start sending WaK2\n");
     config.prf = DWT_PRF_64M;
     config.txCode = 13;
@@ -245,12 +250,18 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_forcetrxoff();
     dwt_rxreset();
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    etimer_set(&et, WAC2_TIME + 10); // TX WaC1
+    etimer_set(&et, WAC2_TIME + 20); // TX WaC1
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
     if (reps == REPS_PER_SESSION){
-      etimer_set(&et, 10 * CLOCK_SECOND); // TX WaC1
+      etimer_set(&et, 4 * CLOCK_SECOND); // TX WaC1
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      printf("REPORT %d -> ", index_cnt);
+      for (int i = 0; i < index_cnt; i++){
+        printf(" %d,", report.ids[i]);
+      }
+      printf("\n");
+      index_cnt = 0;
       printf("_______________________ NEW SESSION ____________________\n");
       reps = 0;
     }

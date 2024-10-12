@@ -65,7 +65,7 @@ typedef enum{
 #define IPI                             500
 #define SNIFF_INTERVAL                  IPI
 #define RAPID_SNIFF_INTERVAL            50
-#define TIMEOUT_MS                      IPI
+#define TIMEOUT_MS                      150
 
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
@@ -73,8 +73,8 @@ dwt_config_t config = {
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_256, /* Preamble length. Used in TX only. */
     DWT_PAC16, /* Preamble acquisition chunk size. Used in RX only. */
-    9, /* TX preamble code. Used in TX only. */
-    9, /* RX preamble code. Used in RX only. */
+    13, /* TX preamble code. Used in TX only. */
+    13, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
     DWT_BR_6M8, /* Data rate. */
     DWT_PHRMODE_STD, /* PHY header mode. */
@@ -195,7 +195,7 @@ PROCESS_THREAD(range_process, ev, data){
         // dwt_forcetrxoff();
         // dwt_configure(&config);
         detection_status = RX_WAK_P1;
-        // wac1_sniff_interval = 10;
+        wac1_sniff_interval = 10;
         continue;
       }
 
@@ -238,7 +238,16 @@ PROCESS_THREAD(range_process, ev, data){
       if (dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
         printf("TX failed\n");
       }
-      detection_status = RX_WAK_P1;
+      etimer_set(&et, 3);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      
+      detection_status = WAITING_FOR_RPLY;
+    }
+    if (detection_status == WAITING_FOR_RPLY){
+      etimer_set(&et, 3);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      config.sfdTO = 8000;
+      dwt_configure(&config);
     }
 
 

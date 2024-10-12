@@ -73,8 +73,8 @@ dwt_config_t config = {
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_256, /* Preamble length. Used in TX only. */
     DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
-    9, /* TX preamble code. Used in TX only. */
-    9, /* RX preamble code. Used in RX only. */
+    13, /* TX preamble code. Used in TX only. */
+    13, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
     DWT_BR_6M8, /* Data rate. */
     DWT_PHRMODE_STD, /* PHY header mode. */
@@ -172,24 +172,6 @@ PROCESS_THREAD(range_process, ev, data){
   //                 DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT |
   //                 DWT_INT_ARFE, 1);
   
-
-  switch (node_id)
-  {
-  case 129:
-  case 74:
-    config.rxCode = 3;
-    config.prf = DWT_PRF_16M;
-    break;
-
-  case 130:
-  case 71:
-    config.rxCode = 9;
-    config.prf = DWT_PRF_64M;
-    break;
-  
-  default:
-    break;
-  }
   
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
@@ -201,51 +183,17 @@ PROCESS_THREAD(range_process, ev, data){
   while (1){
     
     dwt_forcetrxoff();
+    etimer_set(&et, 20);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    dwt_writetxdata(sizeof(payload), payload, 0);
+    dwt_writetxfctrl(sizeof(payload), 0, 0);
+    dwt_starttx(DWT_START_TX_IMMEDIATE);
     etimer_set(&et, 2);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    dwt_forcetrxoff();
-    dwt_rxreset();
-    printf("Sniffing\n");
-    dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    etimer_set(&et, 1);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-    if (status_reg & SYS_STATUS_ALL_RX_ERR){
-      wac1_detection_time = clock_time();
-      printf("WAC1 detected\n");
-      
-      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-    }else{
-      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
-    }
-    wac1_sniff_interval = SNIFF_INTERVAL;
-    detection_status = RX_WAK_P2;
+    dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
+    
+
 
   }
   PROCESS_END();
 }
-/*---------------------------------------------------------------------------*/
-
-
-    // status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-    
-    // if (status_reg & SYS_STATUS_RXFCG){
-    //   dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
-    //   printf("RXOK\n");
-    // }
-    // if (status_reg & SYS_STATUS_ALL_RX_TO){
-    //   // printf("RX TO\n");
-    //   dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-    // }
-    // if (status_reg & SYS_STATUS_ALL_RX_ERR){
-
-    //   dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-    //   phase = (phase + 1) % 2;
-
-      
-
-    //   if (status_reg & SYS_STATUS_RXPHE){printf("PHE ERR\n");}
-    //   if (status_reg & SYS_STATUS_RXFCE){printf("FCE ERR\n");}
-    //   if (status_reg & SYS_STATUS_RXSFDTO){printf("SFDTO ERR\n");}
-    //   if (status_reg & SYS_STATUS_RXRFSL){printf("FSL ERR\n");}
-    // }
