@@ -69,11 +69,15 @@ typedef enum{
 }DETECTION_STATUS;
 
 /*---------------------------------------------------------------------------*/
+#define DIS_ONE_WAY      1
+#define DIS_TWO_WAY      2
+
 
 #define IPI              5
 #define WAC1_TIME        505
 #define WAC2_TIME        52
-#define REPS_PER_SESSION 3
+#define REPS_PER_SESSION 10
+#define DISCOVER_MODE    DIS_TWO_WAY
 /*---------------------------------------------------------------------------*/
 
 uint8_t payload[10];
@@ -85,8 +89,9 @@ static struct Scan_report report;
 DETECTION_STATUS detection_status = CCA_1;
 uint32_t WaC_start_time, WaC_current_time;
 clock_time_t scan_init_time, scan_end_time;
-clock_time_t wac_start_time, current_time;
+clock_time_t wac_start_time, current_time, listen_start_time;
 int reps = 0;
+int send_reply;
 
 
 clock_time_t listen_begin_time, listen_end_time;
@@ -133,6 +138,7 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
     adv_rx_time = dwt_readrxtimestamphi32();
     uint16_t *n_id = (uint16_t *) &payload[2];
     printf("ADV received %d\n", *n_id);
+    send_reply = 1;
     for(int i = 0 ; i <= index_cnt; i++){
       if(report.ids[i] == *n_id){
         return;
@@ -246,21 +252,49 @@ PROCESS_THREAD(range_process, ev, data)
       }
       current_time = clock_time();
     }
+    send_reply = 0;
     printf("Listening....\n");
     dwt_forcetrxoff();
     dwt_rxreset();
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    etimer_set(&et, WAC2_TIME + 20); // TX WaC1
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    current_time = clock_time();
+    listen_start_time = clock_time();
+    while (current_time - listen_start_time < (WAC2_TIME + 20)){
+      if (send_reply == 1){
+        break;
+      }
+      etimer_set(&et, 1); // TX WaC1
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      current_time = clock_time();
+    }
+
+# if (DISCOVER_MODE == DIS_TWO_WAY)
+    if (send_reply){
+      etimer_set(&et, 3); // TX WaC1
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      printf("Sending reply\n");
+      dwt_forcetrxoff();
+      dwt_writetxdata(sizeof(msg), msg, 0);
+      dwt_writetxfctrl(sizeof(msg), 0, 0);
+      dwt_starttx(DWT_START_TX_IMMEDIATE);
+      etimer_set(&et, 5); // TX WaC1
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    }else{
+      printf("No reply to send\n");
+    }
+#endif
 
     if (reps == REPS_PER_SESSION){
-      etimer_set(&et, 4 * CLOCK_SECOND); // TX WaC1
+      etimer_set(&et, 4); // TX WaC1
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       printf("REPORT %d -> ", index_cnt);
       for (int i = 0; i < index_cnt; i++){
         printf(" %d,", report.ids[i]);
+        report.ids[i] = 0;
       }
       printf("\n");
+      etimer_set(&et, 4 * CLOCK_SECOND); // TX WaC1
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
       index_cnt = 0;
       printf("_______________________ NEW SESSION ____________________\n");
       reps = 0;

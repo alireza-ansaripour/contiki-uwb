@@ -162,6 +162,7 @@ PROCESS_THREAD(range_process, ev, data){
     if (detection_status == RX_WAK_P1){
       config.rxCode = 4;
       config.txCode = 4;
+      config.sfdTO = 2;
       config.prf = DWT_PRF_16M;
       dwt_configure(&config);
       dwt_configuretxrf(&txConf);
@@ -248,6 +249,26 @@ PROCESS_THREAD(range_process, ev, data){
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       config.sfdTO = 8000;
       dwt_configure(&config);
+      dwt_setpreambledetecttimeout(3);
+      printf("waiting for reply\n");
+      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      etimer_set(&et, 4);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+      if (status_reg & SYS_STATUS_RXFCG){
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
+        printf("RXOK\n");
+      }
+      if (status_reg & SYS_STATUS_ALL_RX_ERR){
+        printf("ERR\n");
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
+      }
+      if (status_reg & SYS_STATUS_ALL_RX_TO){
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
+        printf("No Reply\n");
+      }
+      detection_status = RX_WAK_P1;
+      
     }
 
 
