@@ -245,7 +245,7 @@ PROCESS_THREAD(range_process, ev, data){
       detection_status = WAITING_FOR_RPLY;
     }
     if (detection_status == WAITING_FOR_RPLY){
-      etimer_set(&et, 3);
+      etimer_set(&et, RAPID_SNIFF_INTERVAL + 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       config.sfdTO = 8000;
       dwt_configure(&config);

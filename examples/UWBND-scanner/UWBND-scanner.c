@@ -59,6 +59,12 @@ struct Scan_report{
   uint16_t ids[20];
 };
 
+struct Reply_times{
+  int index;
+  clock_time_t rx_times[20];
+};
+
+
 typedef enum{
   CCA_1,
   CCA_2,
@@ -86,6 +92,7 @@ uint8_t stop_trans = 0;
 static int index_cnt = 0;
 static int error_cnt = 0;
 static struct Scan_report report;
+static struct Reply_times reply_times;
 DETECTION_STATUS detection_status = CCA_1;
 uint32_t WaC_start_time, WaC_current_time;
 clock_time_t scan_init_time, scan_end_time;
@@ -139,6 +146,7 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
     uint16_t *n_id = (uint16_t *) &payload[2];
     printf("ADV received %d\n", *n_id);
     send_reply = 1;
+    reply_times.rx_times[reply_times.index++] = clock_time();
     for(int i = 0 ; i <= index_cnt; i++){
       if(report.ids[i] == *n_id){
         return;
@@ -198,12 +206,14 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_setpreambledetecttimeout(0);
   index_cnt = 0;
   printf("_______________________ NEW SESSION ____________________\n");
+  
 
   while (1){
     
     /* ------------------------ Sending WaC1 --------------------------------*/
     reps++;
     printf("Start sending WaK1\n");
+    reply_times.index = 0;
     dwt_forcetrxoff();
     config.prf = DWT_PRF_16M;
     config.txCode = 4;
@@ -260,9 +270,9 @@ PROCESS_THREAD(range_process, ev, data)
     current_time = clock_time();
     listen_start_time = clock_time();
     while (current_time - listen_start_time < (WAC2_TIME + 20)){
-      if (send_reply == 1){
-        break;
-      }
+      // if (send_reply == 1){
+      //   break;
+      // }
       etimer_set(&et, 1); // TX WaC1
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       current_time = clock_time();
