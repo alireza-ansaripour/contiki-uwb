@@ -62,6 +62,7 @@ struct Scan_report{
 struct Reply_times{
   int index;
   clock_time_t rx_times[20];
+  uint16_t ids[20];
 };
 
 
@@ -84,6 +85,7 @@ typedef enum{
 #define WAC2_TIME        52
 #define REPS_PER_SESSION 10
 #define DISCOVER_MODE    DIS_TWO_WAY
+#define REPLY_WAIT_TIME  (WAC2_TIME + 124)
 /*---------------------------------------------------------------------------*/
 
 uint8_t payload[10];
@@ -99,7 +101,7 @@ clock_time_t scan_init_time, scan_end_time;
 clock_time_t wac_start_time, current_time, listen_start_time;
 int reps = 0;
 int send_reply;
-
+int k;
 
 clock_time_t listen_begin_time, listen_end_time;
 uint32_t adv_rx_time, rep_tx_time;
@@ -146,9 +148,11 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
     uint16_t *n_id = (uint16_t *) &payload[2];
     printf("ADV received %d\n", *n_id);
     send_reply = 1;
+    reply_times.ids[reply_times.index] = *n_id;
     reply_times.rx_times[reply_times.index++] = clock_time();
     for(int i = 0 ; i <= index_cnt; i++){
       if(report.ids[i] == *n_id){
+        printf("Already seen %d\n", *n_id);
         return;
       }
     }
@@ -269,7 +273,7 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     current_time = clock_time();
     listen_start_time = clock_time();
-    while (current_time - listen_start_time < (WAC2_TIME + 20)){
+    while (current_time - listen_start_time < (WAC2_TIME + 20 + 100)){
       // if (send_reply == 1){
       //   break;
       // }
@@ -280,15 +284,32 @@ PROCESS_THREAD(range_process, ev, data)
 
 # if (DISCOVER_MODE == DIS_TWO_WAY)
     if (send_reply){
-      etimer_set(&et, 3); // TX WaC1
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      printf("Sending reply\n");
-      dwt_forcetrxoff();
-      dwt_writetxdata(sizeof(msg), msg, 0);
-      dwt_writetxfctrl(sizeof(msg), 0, 0);
-      dwt_starttx(DWT_START_TX_IMMEDIATE);
-      etimer_set(&et, 5); // TX WaC1
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      printf("Sending reply to %d\n", reply_times.index);
+      
+      for (k=0; k < reply_times.index; k++){
+        current_time = clock_time();
+        
+        printf("TX_time %d: %d, %d\n", reply_times.ids[k], reply_times.rx_times[k] + REPLY_WAIT_TIME, current_time);
+        if (current_time >  reply_times.rx_times[k] +REPLY_WAIT_TIME){
+          continue;
+        }
+        
+        memcpy(&msg[1], &reply_times.ids[k], 2);
+        etimer_set(&et, (reply_times.rx_times[k] + REPLY_WAIT_TIME) -  current_time); 
+        PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
+        printf("Sending reply %d\n", reply_times.ids[k]);
+        dwt_forcetrxoff();
+        dwt_writetxdata(sizeof(msg), msg, 0);
+        dwt_writetxfctrl(sizeof(msg), 0, 0);
+        dwt_starttx(DWT_START_TX_IMMEDIATE);
+        etimer_set(&et, 5); // TX WaC1
+        PROCESS_WAIT_UNTIL(etimer_expired(&et));
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
+      }
+      reply_times.index = 0;
+
+      
     }else{
       printf("No reply to send\n");
     }

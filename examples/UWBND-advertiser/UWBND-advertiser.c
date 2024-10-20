@@ -58,6 +58,7 @@ typedef enum{
   PKT_DETECTED=5,
   CCA = 6,
   RDY_TO_TX = 7,
+  SLEEP = 8,
 }DETECTION_STATUS;
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
@@ -92,6 +93,7 @@ uint8_t rx_payload[20];
 DETECTION_STATUS detection_status = RX_WAK_P1;
 clock_time_t current_time, wac1_detection_time;
 clock_time_t timeOut = TIMEOUT_MS;
+int random_wait = 0;
 int wac1_sniff_interval = SNIFF_INTERVAL;
 
 
@@ -142,6 +144,7 @@ PROCESS_THREAD(range_process, ev, data){
   dwt_setpreambledetecttimeout(3);  
   payload[2] = node_id;
   clock_init();
+  random_init(node_id);
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
 
   // dw1000_set_isr(dwt_isr);
@@ -227,7 +230,8 @@ PROCESS_THREAD(range_process, ev, data){
       
     }
     if (detection_status == WAITING){
-      etimer_set(&et, RAPID_SNIFF_INTERVAL + 10);
+      random_wait = random_rand() % 100; 
+      etimer_set(&et, RAPID_SNIFF_INTERVAL + 10 + random_wait);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       detection_status = RDY_TO_TX;
     }
@@ -245,30 +249,54 @@ PROCESS_THREAD(range_process, ev, data){
       detection_status = WAITING_FOR_RPLY;
     }
     if (detection_status == WAITING_FOR_RPLY){
-      etimer_set(&et, RAPID_SNIFF_INTERVAL + 3);
+      etimer_set(&et, RAPID_SNIFF_INTERVAL + 123);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       config.sfdTO = 8000;
+      dwt_forcetrxoff();
       dwt_configure(&config);
       dwt_setpreambledetecttimeout(3);
       printf("waiting for reply\n");
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
-      etimer_set(&et, 4);
+      etimer_set(&et, 5);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       status_reg = dwt_read32bitreg(SYS_STATUS_ID);
       if (status_reg & SYS_STATUS_RXFCG){
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
         printf("RXOK\n");
+        dwt_readrxdata(rx_payload, sizeof(payload), 0);
+        if (rx_payload[0] == 0xbe){
+          uint16_t *n_id = (uint16_t *) &rx_payload[1];
+          if (*n_id == node_id){
+            detection_status = SLEEP;
+            // detection_status = RX_WAK_P1;
+            printf("________DETECTED________\n");
+            
+          }
+        }
+        detection_status = RX_WAK_P1;
+        
       }
       if (status_reg & SYS_STATUS_ALL_RX_ERR){
         printf("ERR\n");
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);  
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+        detection_status = RX_WAK_P1;  
       }
       if (status_reg & SYS_STATUS_ALL_RX_TO){
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
         printf("No Reply\n");
+        detection_status = RX_WAK_P1;
       }
-      detection_status = RX_WAK_P1;
       
+      
+    }
+    if (detection_status == SLEEP){
+      printf("GOING TO SLEEP\n");
+      dwt_forcetrxoff();
+      dwt_rxreset();
+      etimer_set(&et, 30 );
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      detection_status = RX_WAK_P1;
+
     }
 
 
