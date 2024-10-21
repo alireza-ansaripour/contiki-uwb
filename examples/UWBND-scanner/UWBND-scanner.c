@@ -85,7 +85,8 @@ typedef enum{
 #define WAC2_TIME        52
 #define REPS_PER_SESSION 10
 #define DISCOVER_MODE    DIS_TWO_WAY
-#define REPLY_WAIT_TIME  (WAC2_TIME + 124)
+#define RANDOM_INTERVAL  10
+#define REPLY_WAIT_TIME  (WAC2_TIME + RANDOM_INTERVAL +24)
 /*---------------------------------------------------------------------------*/
 
 uint8_t payload[10];

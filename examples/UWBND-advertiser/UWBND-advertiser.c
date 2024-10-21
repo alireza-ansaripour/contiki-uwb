@@ -67,6 +67,7 @@ typedef enum{
 #define SNIFF_INTERVAL                  IPI
 #define RAPID_SNIFF_INTERVAL            50
 #define TIMEOUT_MS                      150
+#define RANDOM_TIME                     2
 
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
@@ -230,7 +231,8 @@ PROCESS_THREAD(range_process, ev, data){
       
     }
     if (detection_status == WAITING){
-      random_wait = random_rand() % 100; 
+      // random_wait = random_rand() % RANDOM_TIME; 
+      random_wait = 0;
       etimer_set(&et, RAPID_SNIFF_INTERVAL + 10 + random_wait);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       detection_status = RDY_TO_TX;
