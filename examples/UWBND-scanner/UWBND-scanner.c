@@ -71,8 +71,8 @@ typedef enum{
 
 /*---------------------------------------------------------------------------*/
 
-#define SCAN_INTERVAL      1000
-#define SCAN_DURATION      500
+#define SCAN_INTERVAL      2000
+#define SCAN_DURATION      1500
 /*---------------------------------------------------------------------------*/
 
 uint8_t payload[10];
