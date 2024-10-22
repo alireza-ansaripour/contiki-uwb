@@ -71,8 +71,8 @@ typedef enum{
 
 /*---------------------------------------------------------------------------*/
 
-#define SCAN_INTERVAL      2000
-#define SCAN_DURATION      1500
+#define SCAN_INTERVAL      6000
+#define SCAN_DURATION      5000
 /*---------------------------------------------------------------------------*/
 
 uint8_t payload[10];
@@ -82,7 +82,7 @@ dwt_config_t config = {
     5, /* Channel number. */
     DWT_PRF_16M, /* Pulse repetition frequency. */
     DWT_PLEN_4096, /* Preamble length. Used in TX only. */
-    DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
+    DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
     3, /* TX preamble code. Used in TX only. */
     3, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
