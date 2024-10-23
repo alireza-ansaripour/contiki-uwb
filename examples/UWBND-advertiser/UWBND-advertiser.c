@@ -46,7 +46,7 @@
 /*---------------------------------------------------------------------------*/
 PROCESS(range_process, "Test range process");
 PROCESS(report_stat, "Test range process");
-AUTOSTART_PROCESSES(&range_process);
+AUTOSTART_PROCESSES(&range_process, &report_stat);
 #define UUS_TO_DWT_TIME     65536
 /*---------------------------------------------------------------------------*/
 typedef enum{
@@ -60,6 +60,16 @@ typedef enum{
   RDY_TO_TX = 7,
   SLEEP = 8,
 }DETECTION_STATUS;
+
+
+typedef struct{
+  int TX;
+  int TO;
+  int sniff1;
+  int sniff2;
+}counter_t;
+
+
 /*---------------------------------------------------------------------------*/
 #define STM32_UUID ((uint32_t *)0x1ffff7e8)
 
@@ -67,7 +77,7 @@ typedef enum{
 #define SNIFF_INTERVAL                  IPI
 #define RAPID_SNIFF_INTERVAL            50
 #define TIMEOUT_MS                      150
-#define RANDOM_TIME                     2
+#define RANDOM_TIME                     10
 
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
@@ -96,7 +106,7 @@ clock_time_t current_time, wac1_detection_time;
 clock_time_t timeOut = TIMEOUT_MS;
 int random_wait = 0;
 int wac1_sniff_interval = SNIFF_INTERVAL;
-
+counter_t counter;
 
 /*---------------------------------------------------------------------------*/
 
@@ -104,8 +114,9 @@ PROCESS_THREAD(report_stat, ev, data){
   static struct etimer et;
   PROCESS_BEGIN();
   while (1){
-    etimer_set(&et, CLOCK_SECOND);
+    etimer_set(&et, CLOCK_SECOND * 5);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    printf("STAT: SNIFF1: %d, Sniff2 %d, TX %d, TO %d\n", counter.sniff1, counter.sniff2, counter.TX, counter.TO);
     
   }
   PROCESS_END();
@@ -188,7 +199,7 @@ PROCESS_THREAD(range_process, ev, data){
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
       }
       wac1_sniff_interval = SNIFF_INTERVAL;
-      
+      counter.sniff1++;
       continue;
     }
     if (detection_status == RX_WAK_P2){
@@ -201,6 +212,7 @@ PROCESS_THREAD(range_process, ev, data){
         // dwt_configure(&config);
         detection_status = RX_WAK_P1;
         wac1_sniff_interval = 10;
+        counter.TO++;
         continue;
       }
 
@@ -227,12 +239,12 @@ PROCESS_THREAD(range_process, ev, data){
       }else{
         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
       }
-      
+      counter.sniff2++;
       
     }
     if (detection_status == WAITING){
-      // random_wait = random_rand() % RANDOM_TIME; 
-      random_wait = 0;
+      random_wait = random_rand() % RANDOM_TIME; 
+      // random_wait = 0;
       etimer_set(&et, RAPID_SNIFF_INTERVAL + 10 + random_wait);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       detection_status = RDY_TO_TX;
@@ -249,6 +261,7 @@ PROCESS_THREAD(range_process, ev, data){
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       
       detection_status = WAITING_FOR_RPLY;
+      counter.TX++;
     }
     if (detection_status == WAITING_FOR_RPLY){
       etimer_set(&et, RAPID_SNIFF_INTERVAL + 123);

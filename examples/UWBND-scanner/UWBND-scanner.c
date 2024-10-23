@@ -83,7 +83,7 @@ typedef enum{
 #define IPI              5
 #define WAC1_TIME        505
 #define WAC2_TIME        52
-#define REPS_PER_SESSION 10
+#define REPS_PER_SESSION 3
 #define DISCOVER_MODE    DIS_TWO_WAY
 #define RANDOM_INTERVAL  10
 #define REPLY_WAIT_TIME  (WAC2_TIME + RANDOM_INTERVAL +24)
@@ -325,8 +325,8 @@ PROCESS_THREAD(range_process, ev, data)
         report.ids[i] = 0;
       }
       printf("\n");
-      etimer_set(&et, 4 * CLOCK_SECOND); // TX WaC1
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      // etimer_set(&et, CLOCK_SECOND * 1); // TX WaC1
+      // PROCESS_WAIT_UNTIL(etimer_expired(&et));
       index_cnt = 0;
       printf("_______________________ NEW SESSION ____________________\n");
       reps = 0;
