@@ -84,7 +84,7 @@ dwt_config_t config = {
     5, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_256, /* Preamble length. Used in TX only. */
-    DWT_PAC16, /* Preamble acquisition chunk size. Used in RX only. */
+    DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
     13, /* TX preamble code. Used in TX only. */
     13, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
@@ -243,8 +243,8 @@ PROCESS_THREAD(range_process, ev, data){
       
     }
     if (detection_status == WAITING){
-      random_wait = random_rand() % RANDOM_TIME; 
-      // random_wait = 0;
+      // random_wait = random_rand() % RANDOM_TIME; 
+      random_wait = 0;
       etimer_set(&et, RAPID_SNIFF_INTERVAL + 10 + random_wait);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       detection_status = RDY_TO_TX;
