@@ -393,8 +393,8 @@ PROCESS_THREAD(range_process, ev, data)
         report.ids[i] = 0;
       }
       printf("\n");
-      // etimer_set(&et, CLOCK_SECOND * 1); // TX WaC1
-      // PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      etimer_set(&et, CLOCK_SECOND * 5); // TX WaC1
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
       index_cnt = 0;
       printf("_______________________ NEW SESSION ____________________\n");
       reps = 0;

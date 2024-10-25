@@ -78,6 +78,7 @@ typedef struct{
 #define RAPID_SNIFF_INTERVAL            50
 #define TIMEOUT_MS                      150
 #define RANDOM_TIME                     10
+#define SNIFF_LEN                       2
 
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
@@ -153,7 +154,7 @@ PROCESS_THREAD(range_process, ev, data){
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
-  dwt_setpreambledetecttimeout(3);  
+  dwt_setpreambledetecttimeout(SNIFF_LEN);  
   payload[2] = node_id;
   clock_init();
   random_init(node_id);
@@ -181,7 +182,7 @@ PROCESS_THREAD(range_process, ev, data){
       config.prf = DWT_PRF_16M;
       dwt_configure(&config);
       dwt_configuretxrf(&txConf);
-      dwt_setpreambledetecttimeout(3); 
+      dwt_setpreambledetecttimeout(SNIFF_LEN); 
       etimer_set(&et, wac1_sniff_interval - 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
@@ -222,7 +223,7 @@ PROCESS_THREAD(range_process, ev, data){
       // config.rxPAC = DWT_PAC8;
       dwt_configure(&config);
       dwt_configuretxrf(&txConf);
-      dwt_setpreambledetecttimeout(3);  
+      dwt_setpreambledetecttimeout(SNIFF_LEN);  
       etimer_set(&et, RAPID_SNIFF_INTERVAL - 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
@@ -250,7 +251,7 @@ PROCESS_THREAD(range_process, ev, data){
       detection_status = RDY_TO_TX;
     }
     if (detection_status == RDY_TO_TX){
-      printf("TX ....\n");
+      printf("TX .... %d\n", random_wait);
       dwt_forcetrxoff();
       dwt_writetxdata(sizeof(payload), payload, 0);
       dwt_writetxfctrl(sizeof(payload), 0, 0);
@@ -269,7 +270,7 @@ PROCESS_THREAD(range_process, ev, data){
       config.sfdTO = 8000;
       dwt_forcetrxoff();
       dwt_configure(&config);
-      dwt_setpreambledetecttimeout(3);
+      dwt_setpreambledetecttimeout(SNIFF_LEN);
       printf("waiting for reply\n");
       dwt_rxenable(DWT_START_RX_IMMEDIATE);
       etimer_set(&et, 5);
