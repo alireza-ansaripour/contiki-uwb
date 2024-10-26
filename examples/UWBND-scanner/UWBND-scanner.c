@@ -79,10 +79,13 @@ typedef enum{
 #define IPI              5
 #define WAC1_TIME        1000
 #define WAC2_TIME        52
-#define REPS_PER_SESSION 3
+#define REPS_PER_SESSION 10
 #define DISCOVER_MODE    DIS_TWO_WAY
 #define RANDOM_INTERVAL  10
 #define REPLY_WAIT_TIME  (WAC2_TIME + RANDOM_INTERVAL +24)
+#define PRF1             13
+#define PRF2             4
+
 /*---------------------------------------------------------------------------*/
 
 uint8_t payload[10];
@@ -220,18 +223,18 @@ PROCESS_THREAD(range_process, ev, data)
   while (1){
     wac_detected = 0;
     dwt_forcetrxoff();
-    config.prf = DWT_PRF_16M;
-    config.txCode = 4;
-    config.rxCode = 4;
+    config.prf = DWT_PRF_64M;
+    config.txCode = PRF1;
+    config.rxCode = PRF1;
     dwt_configure(&config);
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     etimer_set(&et, (node_id % 10) * 5 + 10); // TX WaC1
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
     dwt_forcetrxoff();
-    config.prf = DWT_PRF_64M;
-    config.txCode = 13;
-    config.rxCode = 13;
+    config.prf = DWT_PRF_16M;
+    config.txCode = PRF2;
+    config.rxCode = PRF2;
     dwt_configure(&config);
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     etimer_set(&et, 10); // TX WaC1
@@ -242,9 +245,9 @@ PROCESS_THREAD(range_process, ev, data)
       detection_status = WAC_DETECTED;
 
       dwt_forcetrxoff();
-      config.prf = DWT_PRF_16M;
-      config.txCode = 4;
-      config.rxCode = 4;
+      config.prf = DWT_PRF_64M;
+      config.txCode = PRF1;
+      config.rxCode = PRF1;
       dwt_configure(&config);
       wac_detected = 1;
       while (wac_detected == 1){
@@ -256,9 +259,9 @@ PROCESS_THREAD(range_process, ev, data)
 
 
       dwt_forcetrxoff();
-      config.prf = DWT_PRF_64M;
-      config.txCode = 13;
-      config.rxCode = 13;
+      config.prf = DWT_PRF_16M;
+      config.txCode = PRF2;
+      config.rxCode = PRF2;
       dwt_configure(&config);
       wac_detected = 1;
       while (wac_detected == 1){
@@ -287,9 +290,9 @@ PROCESS_THREAD(range_process, ev, data)
       printf("Start sending WaK1\n");
       reply_times.index = 0;
       dwt_forcetrxoff();
-      config.prf = DWT_PRF_16M;
-      config.txCode = 4;
-      config.rxCode = 4;
+      config.prf = DWT_PRF_64M;
+      config.txCode = PRF1;
+      config.rxCode = PRF1;
       dwt_configure(&config);
       wac_start_time = clock_time();
       current_time = clock_time();
@@ -312,9 +315,9 @@ PROCESS_THREAD(range_process, ev, data)
       dwt_forcetrxoff();
       // /* ----------------------- Changing to WaC2 -------------------------------------*/
       printf("Start sending WaK2\n");
-      config.prf = DWT_PRF_64M;
-      config.txCode = 13;
-      config.rxCode = 13;
+      config.prf = DWT_PRF_16M;
+      config.txCode = PRF2;
+      config.rxCode = PRF2;
       dwt_configure(&config);
       dwt_writetxdata(sizeof(msg), msg, 0);
       dwt_writetxfctrl(sizeof(msg), 0, 0);

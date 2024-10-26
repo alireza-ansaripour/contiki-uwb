@@ -78,14 +78,14 @@ typedef struct{
 #define RAPID_SNIFF_INTERVAL            50
 #define TIMEOUT_MS                      150
 #define RANDOM_TIME                     10
-#define SNIFF_LEN                       2
+#define SNIFF_LEN                       3
 
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
     5, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_256, /* Preamble length. Used in TX only. */
-    DWT_PAC16, /* Preamble acquisition chunk size. Used in RX only. */
+    DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
     13, /* TX preamble code. Used in TX only. */
     13, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
@@ -150,7 +150,7 @@ PROCESS_THREAD(range_process, ev, data){
   }
 
 
-  printf("STARTING advertiser %d\n", node_id);
+  printf("STARTING advertiser %d, %d, %d\n", node_id, SNIFF_LEN, config.rxPAC);
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
@@ -176,10 +176,10 @@ PROCESS_THREAD(range_process, ev, data){
     // dwt_softreset();
     // dw1000_spi_set_fast_rate();
     if (detection_status == RX_WAK_P1){
-      config.rxCode = 4;
-      config.txCode = 4;
+      config.rxCode = 13;
+      config.txCode = 13;
       config.sfdTO = 2;
-      config.prf = DWT_PRF_16M;
+      config.prf = DWT_PRF_64M;
       dwt_configure(&config);
       dwt_configuretxrf(&txConf);
       dwt_setpreambledetecttimeout(SNIFF_LEN); 
@@ -217,10 +217,10 @@ PROCESS_THREAD(range_process, ev, data){
         continue;
       }
 
-      config.rxCode = 13;
-      config.txCode = 13;
-      config.prf = DWT_PRF_64M;
-      // config.rxPAC = DWT_PAC8;
+      config.rxCode = 4;
+      config.txCode = 4;
+      config.prf = DWT_PRF_16M;
+      config.rxPAC = DWT_PAC16;
       dwt_configure(&config);
       dwt_configuretxrf(&txConf);
       dwt_setpreambledetecttimeout(SNIFF_LEN);  
