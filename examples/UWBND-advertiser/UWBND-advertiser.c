@@ -76,15 +76,15 @@ typedef struct{
 #define IPI                             500
 #define SNIFF_INTERVAL                  IPI
 #define RAPID_SNIFF_INTERVAL            50
-#define TIMEOUT_MS                      150
-#define RANDOM_TIME                     10
-
+#define TIMEOUT_MS                      550
+#define RANDOM_TIME                     50
+#define SNIFF_LEN                       100
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
     5, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_256, /* Preamble length. Used in TX only. */
-    DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
+    DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
     13, /* TX preamble code. Used in TX only. */
     13, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
@@ -116,7 +116,7 @@ PROCESS_THREAD(report_stat, ev, data){
   while (1){
     etimer_set(&et, CLOCK_SECOND * 5);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    printf("STAT: SNIFF1: %d, Sniff2 %d, TX %d, TO %d\n", counter.sniff1, counter.sniff2, counter.TX, counter.TO);
+    // printf("STAT: SNIFF1: %d, Sniff2 %d, TX %d, TO %d\n", counter.sniff1, counter.sniff2, counter.TX, counter.TO);
     
   }
   PROCESS_END();
@@ -153,7 +153,7 @@ PROCESS_THREAD(range_process, ev, data){
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();
-  dwt_setpreambledetecttimeout(3);  
+  dwt_setpreambledetecttimeout(SNIFF_LEN);  
   payload[2] = node_id;
   clock_init();
   random_init(node_id);
@@ -181,7 +181,7 @@ PROCESS_THREAD(range_process, ev, data){
       config.prf = DWT_PRF_16M;
       dwt_configure(&config);
       dwt_configuretxrf(&txConf);
-      dwt_setpreambledetecttimeout(3); 
+      dwt_setpreambledetecttimeout(SNIFF_LEN); 
       etimer_set(&et, wac1_sniff_interval - 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
@@ -222,7 +222,7 @@ PROCESS_THREAD(range_process, ev, data){
       // config.rxPAC = DWT_PAC8;
       dwt_configure(&config);
       dwt_configuretxrf(&txConf);
-      dwt_setpreambledetecttimeout(3);  
+      dwt_setpreambledetecttimeout(SNIFF_LEN);  
       etimer_set(&et, RAPID_SNIFF_INTERVAL - 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
@@ -243,14 +243,14 @@ PROCESS_THREAD(range_process, ev, data){
       
     }
     if (detection_status == WAITING){
-      // random_wait = random_rand() % RANDOM_TIME; 
-      random_wait = 0;
+      random_wait = random_rand() % RANDOM_TIME; 
+      // random_wait = 0;
       etimer_set(&et, RAPID_SNIFF_INTERVAL + 10 + random_wait);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       detection_status = RDY_TO_TX;
     }
     if (detection_status == RDY_TO_TX){
-      printf("TX ....\n");
+      printf("TX .... %d\n", random_wait);
       dwt_forcetrxoff();
       dwt_writetxdata(sizeof(payload), payload, 0);
       dwt_writetxfctrl(sizeof(payload), 0, 0);
