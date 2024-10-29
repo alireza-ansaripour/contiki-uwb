@@ -77,7 +77,7 @@ typedef struct{
 #define SNIFF_INTERVAL                  IPI
 #define RAPID_SNIFF_INTERVAL            50
 #define TIMEOUT_MS                      550
-#define RANDOM_TIME                     50
+#define RANDOM_TIME                     10
 #define SNIFF_LEN                       100
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
@@ -247,12 +247,14 @@ PROCESS_THREAD(range_process, ev, data){
     if (detection_status == WAITING){
       random_wait = random_rand() % RANDOM_TIME; 
       // random_wait = 0;
-      etimer_set(&et, RAPID_SNIFF_INTERVAL + 10 + random_wait);
+      etimer_set(&et, RAPID_SNIFF_INTERVAL + 10 + (random_wait * 2));
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       detection_status = RDY_TO_TX;
     }
     if (detection_status == RDY_TO_TX){
-      printf("TX .... %d\n", random_wait);
+      printf("TX .... %d\n", (random_wait * 2));
+      etimer_set(&et, 3);
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
       dwt_forcetrxoff();
       dwt_writetxdata(sizeof(payload), payload, 0);
       dwt_writetxfctrl(sizeof(payload), 0, 0);
