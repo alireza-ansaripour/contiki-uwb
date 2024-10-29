@@ -188,7 +188,7 @@ PROCESS_THREAD(range_process, ev, data)
                   DWT_INT_ARFE, 1);
   
   dwt_setcallbacks(&tx_ok_cb, &rx_ok_cb, NULL, &rx_err_cb);
-  etimer_set(&et, 100);
+  etimer_set(&et, CLOCK_SECOND);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
 
@@ -203,11 +203,12 @@ PROCESS_THREAD(range_process, ev, data)
   clock_init();
   dwt_writetxdata(sizeof(msg), msg, 0);
   dwt_writetxfctrl(sizeof(msg), 0, 0);
+
   printf("Starting scanner:%d \n", node_id);
 
 
   
-  
+  random_init(node_id);
   dwt_setpreambledetecttimeout(0);
   index_cnt = 0;
   printf("_______________________ NEW SESSION ____________________\n");
@@ -325,7 +326,7 @@ PROCESS_THREAD(range_process, ev, data)
         report.ids[i] = 0;
       }
       printf("\n");
-      etimer_set(&et, CLOCK_SECOND * 10); // TX WaC1
+      etimer_set(&et, CLOCK_SECOND * (random_rand() % 5)); // TX WaC1
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       index_cnt = 0;
       printf("_______________________ NEW SESSION ____________________\n");

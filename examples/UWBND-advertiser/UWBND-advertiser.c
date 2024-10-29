@@ -169,6 +169,8 @@ PROCESS_THREAD(range_process, ev, data){
   detection_status = RX_WAK_P1;
   wac1_sniff_interval = SNIFF_INTERVAL;
   
+  etimer_set(&et, node_id % 20);
+  PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
   while (1){
     // dw1000_spi_set_slow_rate();
@@ -260,7 +262,7 @@ PROCESS_THREAD(range_process, ev, data){
       etimer_set(&et, 3);
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       
-      detection_status = WAITING_FOR_RPLY;
+      detection_status = RX_WAK_P1;
       counter.TX++;
     }
     if (detection_status == WAITING_FOR_RPLY){
