@@ -67,12 +67,8 @@ struct Reply_times{
 
 
 typedef enum{
-  CCA_1,
-  CCA_2,
-  WAK_1,
-  WAK_2,
-  SEND_RPLY,
-  LISTENING,
+  WAC_DETECTED,
+  CLEAR,
 }DETECTION_STATUS;
 
 /*---------------------------------------------------------------------------*/
@@ -96,13 +92,14 @@ static int index_cnt = 0;
 static int error_cnt = 0;
 static struct Scan_report report;
 static struct Reply_times reply_times;
-DETECTION_STATUS detection_status = CCA_1;
+DETECTION_STATUS detection_status;
 uint32_t WaC_start_time, WaC_current_time;
 clock_time_t scan_init_time, scan_end_time;
 clock_time_t wac_start_time, current_time, listen_start_time;
 int reps = 0;
 int send_reply;
 int k;
+int wac_detected;
 
 clock_time_t listen_begin_time, listen_end_time;
 uint32_t adv_rx_time, rep_tx_time;
@@ -122,9 +119,10 @@ dwt_config_t config = {
 
 
 dwt_txconfig_t txConf = {
-    0xC9, //PGDelay
-    0x18181818 //30 dB
+  0xC9, //PGDelay
+  0x18181818 //30 dB
 };
+DETECTION_STATUS detection_status;
 
 
 /*----------------------------------------------------------------------------------*/
@@ -159,6 +157,9 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
     
     report.ids[index_cnt++] = *n_id;
   }
+  if (payload[0] == 0xbe){
+    wac_detected = 1;
+  }
 }
 
 
@@ -166,6 +167,7 @@ void rx_err_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
   error_cnt++;
+  wac_detected = 1;
   printf("ERR\n");
 }
 
@@ -215,62 +217,151 @@ PROCESS_THREAD(range_process, ev, data)
   
 
   while (1){
-    
-    /* ------------------------ Sending WaC1 --------------------------------*/
-    reps++;
-    printf("Start sending WaK1\n");
-    reply_times.index = 0;
+
+
+    wac_detected = 0;
     dwt_forcetrxoff();
     config.prf = DWT_PRF_16M;
     config.txCode = 4;
     config.rxCode = 4;
     dwt_configure(&config);
-    wac_start_time = clock_time();
-    current_time = clock_time();
-    while (current_time - wac_start_time < WAC1_TIME){
-      dwt_forcetrxoff();
-      memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
-      dwt_writetxdata(sizeof(msg), msg, 0);
-      dwt_writetxfctrl(sizeof(msg), 0, 0);
-      dwt_starttx(DWT_START_TX_IMMEDIATE);
-      etimer_set(&et, IPI); // TX WaC1
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-      if (status_reg & SYS_STATUS_TXFRS){
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
-      }
-      current_time = clock_time();
-    }
-    
-    
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    etimer_set(&et, (node_id % 10) * 5 + 10); // TX WaC1
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
     dwt_forcetrxoff();
-    // /* ----------------------- Changing to WaC2 -------------------------------------*/
-    printf("Start sending WaK2\n");
     config.prf = DWT_PRF_64M;
     config.txCode = 13;
     config.rxCode = 13;
     dwt_configure(&config);
-    dwt_writetxdata(sizeof(msg), msg, 0);
-    dwt_writetxfctrl(sizeof(msg), 0, 0);
-    wac_start_time = clock_time();
-    current_time = clock_time();
-    while (current_time - wac_start_time < WAC2_TIME){
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    etimer_set(&et, 10); // TX WaC1
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
+    if (wac_detected == 0){
+      etimer_set(&et, WAC2_TIME + RANDOM_INTERVAL); // TX WaC1
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
       dwt_forcetrxoff();
-      memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
+      config.prf = DWT_PRF_16M;
+      config.txCode = 4;
+      config.rxCode = 4;
+      dwt_configure(&config);
+      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      etimer_set(&et, (node_id % 10) * 5 + 10); // TX WaC1
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
+      dwt_forcetrxoff();
+      config.prf = DWT_PRF_64M;
+      config.txCode = 13;
+      config.rxCode = 13;
+      dwt_configure(&config);
+      dwt_rxenable(DWT_START_RX_IMMEDIATE);
+      etimer_set(&et, 10); // TX WaC1
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    }
+    
+
+    if (wac_detected){
+      printf("___________ WAC detected __________\n");
+      detection_status = WAC_DETECTED;
+
+      dwt_forcetrxoff();
+      config.prf = DWT_PRF_16M;
+      config.txCode = 4;
+      config.rxCode = 4;
+      dwt_configure(&config);
+      wac_detected = 1;
+      while (wac_detected == 1){
+        wac_detected = 0;
+        dwt_rxenable(DWT_START_RX_IMMEDIATE);
+        etimer_set(&et, 10); // TX WaC1
+        PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      }
+
+
+      dwt_forcetrxoff();
+      config.prf = DWT_PRF_64M;
+      config.txCode = 13;
+      config.rxCode = 13;
+      dwt_configure(&config);
+      wac_detected = 1;
+
+
+
+      while (wac_detected == 1){
+        wac_detected = 0;
+        dwt_rxenable(DWT_START_RX_IMMEDIATE);
+        etimer_set(&et, 10); // TX WaC1
+        PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      }
+
+    }else{
+      detection_status = CLEAR;
+    }
+    
+    /* ------------------------ Sending WaC1 --------------------------------*/
+    reps++;
+    if(detection_status == CLEAR){
+      printf("Start sending WaK1\n");
+      reply_times.index = 0;
+      dwt_forcetrxoff();
+      config.prf = DWT_PRF_16M;
+      config.txCode = 4;
+      config.rxCode = 4;
+      dwt_configure(&config);
+      wac_start_time = clock_time();
+      current_time = clock_time();
+      while (current_time - wac_start_time < WAC1_TIME){
+        dwt_forcetrxoff();
+        memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
+        dwt_writetxdata(sizeof(msg), msg, 0);
+        dwt_writetxfctrl(sizeof(msg), 0, 0);
+        dwt_starttx(DWT_START_TX_IMMEDIATE);
+        etimer_set(&et, IPI); // TX WaC1
+        PROCESS_WAIT_UNTIL(etimer_expired(&et));
+        status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+        if (status_reg & SYS_STATUS_TXFRS){
+          dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
+        }
+        current_time = clock_time();
+      }
+      
+      
+      dwt_forcetrxoff();
+      // /* ----------------------- Changing to WaC2 -------------------------------------*/
+      printf("Start sending WaK2\n");
+      config.prf = DWT_PRF_64M;
+      config.txCode = 13;
+      config.rxCode = 13;
+      dwt_configure(&config);
       dwt_writetxdata(sizeof(msg), msg, 0);
       dwt_writetxfctrl(sizeof(msg), 0, 0);
-      dwt_starttx(DWT_START_TX_IMMEDIATE);
-      etimer_set(&et, IPI); // TX WaC1
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      status_reg = dwt_read32bitreg(SYS_STATUS_ID);
-      if (status_reg & SYS_STATUS_TXFRS){
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
-      }
+      wac_start_time = clock_time();
       current_time = clock_time();
+      while (current_time - wac_start_time < WAC2_TIME){
+        dwt_forcetrxoff();
+        memset((uint8_t *) &msg[1], 0, sizeof(msg) - 1);
+        dwt_writetxdata(sizeof(msg), msg, 0);
+        dwt_writetxfctrl(sizeof(msg), 0, 0);
+        dwt_starttx(DWT_START_TX_IMMEDIATE);
+        etimer_set(&et, IPI); // TX WaC1
+        PROCESS_WAIT_UNTIL(etimer_expired(&et));
+        status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+        if (status_reg & SYS_STATUS_TXFRS){
+          dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
+        }
+        current_time = clock_time();
+      }
     }
+    
     send_reply = 0;
     printf("Listening....\n");
     dwt_forcetrxoff();
+    config.prf = DWT_PRF_64M;
+    config.txCode = 13;
+    config.rxCode = 13;
+    dwt_configure(&config);
     dwt_rxreset();
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     current_time = clock_time();
@@ -326,7 +417,7 @@ PROCESS_THREAD(range_process, ev, data)
         report.ids[i] = 0;
       }
       printf("\n");
-      etimer_set(&et, CLOCK_SECOND * (random_rand() % 5)); // TX WaC1
+      etimer_set(&et, 100 * (random_rand() % 5)); // TX WaC1
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       index_cnt = 0;
       printf("_______________________ NEW SESSION ____________________\n");
