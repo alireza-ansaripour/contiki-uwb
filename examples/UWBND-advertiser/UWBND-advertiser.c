@@ -78,13 +78,13 @@ typedef struct{
 #define RAPID_SNIFF_INTERVAL            50
 #define TIMEOUT_MS                      550
 #define RANDOM_TIME                     10
-#define SNIFF_LEN                       100
+#define SNIFF_LEN                       3
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
     5, /* Channel number. */
     DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_256, /* Preamble length. Used in TX only. */
-    DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
+    DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
     13, /* TX preamble code. Used in TX only. */
     13, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
