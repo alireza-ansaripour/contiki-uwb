@@ -65,11 +65,11 @@ typedef enum{
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
     5, /* Channel number. */
-    DWT_PRF_16M, /* Pulse repetition frequency. */
-    DWT_PLEN_4096, /* Preamble length. Used in TX only. */
+    DWT_PRF_64M, /* Pulse repetition frequency. */
+    DWT_PLEN_64, /* Preamble length. Used in TX only. */
     DWT_PAC8, /* Preamble acquisition chunk size. Used in RX only. */
-    3, /* TX preamble code. Used in TX only. */
-    3, /* RX preamble code. Used in RX only. */
+    13, /* TX preamble code. Used in TX only. */
+    13, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
     DWT_BR_6M8, /* Data rate. */
     DWT_PHRMODE_STD, /* PHY header mode. */
@@ -85,6 +85,12 @@ dwt_txconfig_t txConf = {
 uint8_t payload[] = {0xad, 0, 0, 0, 0, 0};
 uint8_t rx_payload[20];
 uint32_t status_reg;
+int random_starts[20] = {24, 68, 21, 88, 64, 91, 84, 89, 33, 94, 42, 83, 87, 99, 22, 28, 14, 2, 36, 70};
+// int random_starts[20] = {96, 84, 13, 73, 24, 69, 82, 64, 67, 43, 74, 83, 5, 20, 7, 21, 36, 81, 47, 11};
+// int random_starts[20] = {50, 73, 70, 8, 99, 27, 64, 18, 25, 48, 46, 23, 49, 41, 51, 6, 4, 94, 69, 40};
+// int random_starts[20] = {73, 84, 6, 79, 39, 72, 92, 53, 94, 23, 52, 28, 68, 70, 14, 38, 20, 44, 27, 82};
+// int random_starts[20] = {75, 48, 85, 73, 37, 46, 88, 11, 15, 13, 12, 62, 80, 44, 91, 14, 25, 57, 84, 16};
+
 
 PROCESS_THREAD(range_process, ev, data){
   static struct etimer et;
@@ -100,6 +106,8 @@ PROCESS_THREAD(range_process, ev, data){
     printf("Failed to set nodeID\n");
   }
 
+  etimer_set(&et, (random_starts[(node_id % 20)] % 20) * CLOCK_SECOND);
+  PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
   printf("STARTING advertiser %d\n", node_id);
   dwt_configure(&config);
@@ -120,7 +128,7 @@ PROCESS_THREAD(range_process, ev, data){
   while (1){
     dwt_writetxfctrl(sizeof(payload), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
-    etimer_set(&et, 1);
+    etimer_set(&et, 2);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     
     status_reg = dwt_read32bitreg(SYS_STATUS_ID);
@@ -130,27 +138,27 @@ PROCESS_THREAD(range_process, ev, data){
     }
     
     dwt_forcetrxoff();
-    etimer_set(&et, RESP_WAIT);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    dwt_rxenable(DWT_START_RX_IMMEDIATE);
-    etimer_set(&et, 5);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+    // etimer_set(&et, RESP_WAIT);
+    // PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    // dwt_rxenable(DWT_START_RX_IMMEDIATE);
+    // etimer_set(&et, 5);
+    // PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    // status_reg = dwt_read32bitreg(SYS_STATUS_ID);
 
-    if (status_reg & SYS_STATUS_RXFCG){
-      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
-      printf("FOUND RESP\n");
-    }
-    if (status_reg & SYS_STATUS_ALL_RX_TO){
-      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-    }
-    if (status_reg & SYS_STATUS_ALL_RX_ERR){
-      printf("RX err\n");
-      dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+    // if (status_reg & SYS_STATUS_RXFCG){
+    //   dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
+    //   printf("FOUND RESP\n");
+    // }
+    // if (status_reg & SYS_STATUS_ALL_RX_TO){
+    //   dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+    // }
+    // if (status_reg & SYS_STATUS_ALL_RX_ERR){
+    //   printf("RX err\n");
+    //   dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
 
-    }
-    dwt_forcetrxoff();
-    etimer_set(&et, T_ADV - RESP_WAIT - 6);
+    // }
+    // dwt_forcetrxoff();
+    etimer_set(&et, T_ADV);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     
     

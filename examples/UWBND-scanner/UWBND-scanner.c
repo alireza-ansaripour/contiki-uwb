@@ -71,8 +71,8 @@ typedef enum{
 
 /*---------------------------------------------------------------------------*/
 
-#define SCAN_INTERVAL      6000
-#define SCAN_DURATION      5000
+#define SCAN_INTERVAL      4485
+#define SCAN_DURATION      3000
 /*---------------------------------------------------------------------------*/
 
 uint8_t payload[10];
@@ -80,11 +80,11 @@ uint8_t msg[7] = {0xbe, 0, 0, 0, 0, 0, 0};
 
 dwt_config_t config = {
     5, /* Channel number. */
-    DWT_PRF_16M, /* Pulse repetition frequency. */
+    DWT_PRF_64M, /* Pulse repetition frequency. */
     DWT_PLEN_4096, /* Preamble length. Used in TX only. */
     DWT_PAC32, /* Preamble acquisition chunk size. Used in RX only. */
-    3, /* TX preamble code. Used in TX only. */
-    3, /* RX preamble code. Used in RX only. */
+    13, /* TX preamble code. Used in TX only. */
+    13, /* RX preamble code. Used in RX only. */
     0, /* 0 to use standard SFD, 1 to use non-standard SFD. */
     DWT_BR_6M8, /* Data rate. */
     DWT_PHRMODE_STD, /* PHY header mode. */
@@ -121,19 +121,25 @@ PROCESS_THREAD(send_msg, ev, data){
   static struct etimer et;
   PROCESS_BEGIN();
   
-
-  etimer_set(&et, 9);
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
-  printf("Sending message\n");
+  dwt_readrxdata(payload, sizeof(msg), 0);
   dwt_forcetrxoff();
-  dwt_writetxdata(sizeof(msg), msg, 0);
-  dwt_writetxfctrl(sizeof(msg), 0, 0);
-  if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
-    printf("TX ERR\n");
-  }
+  dwt_rxenable(DWT_START_RX_IMMEDIATE);
 
-  etimer_set(&et, 8);
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  uint16_t *n_id = (uint16_t *) &payload[2];
+  printf("ADV received %d\n", *n_id);
+  
+  // etimer_set(&et, 9);
+  // PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  // printf("Sending message\n");
+  // dwt_forcetrxoff();
+  // dwt_writetxdata(sizeof(msg), msg, 0);
+  // dwt_writetxfctrl(sizeof(msg), 0, 0);
+  // if(dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS){
+  //   printf("TX ERR\n");
+  // }
+
+  // etimer_set(&et, 8);
+  // PROCESS_WAIT_UNTIL(etimer_expired(&et));
   
   PROCESS_END();
 }
