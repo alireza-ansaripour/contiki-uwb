@@ -83,6 +83,7 @@ typedef enum{
 #define DISCOVER_MODE    DIS_TWO_WAY
 #define RANDOM_INTERVAL  200
 #define REPLY_WAIT_TIME  (WAC2_TIME + RANDOM_INTERVAL +24)
+#define SCAN_INTERVAL      WAIT_TIME
 /*---------------------------------------------------------------------------*/
 
 uint8_t payload[10];
@@ -206,7 +207,7 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_writetxdata(sizeof(msg), msg, 0);
   dwt_writetxfctrl(sizeof(msg), 0, 0);
 
-  printf("Starting scanner:%d \n", node_id);
+  printf("Starting scanner:%d, %d \n", node_id, SCAN_INTERVAL);
 
 
   
@@ -417,7 +418,7 @@ PROCESS_THREAD(range_process, ev, data)
         report.ids[i] = 0;
       }
       printf("\n");
-      etimer_set(&et, 7 * CLOCK_SECOND); // TX WaC1
+      etimer_set(&et, (SCAN_INTERVAL - 3000)); // TX WaC1
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       index_cnt = 0;
       printf("_______________________ NEW SESSION ____________________\n");
