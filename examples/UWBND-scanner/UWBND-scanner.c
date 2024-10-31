@@ -418,7 +418,7 @@ PROCESS_THREAD(range_process, ev, data)
         report.ids[i] = 0;
       }
       printf("\n");
-      etimer_set(&et, (SCAN_INTERVAL - 3000)); // TX WaC1
+      etimer_set(&et, (SCAN_INTERVAL)); // TX WaC1
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       index_cnt = 0;
       printf("_______________________ NEW SESSION ____________________\n");
