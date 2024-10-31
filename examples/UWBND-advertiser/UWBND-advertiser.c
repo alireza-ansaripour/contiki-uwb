@@ -85,11 +85,21 @@ dwt_txconfig_t txConf = {
 uint8_t payload[] = {0xad, 0, 0, 0, 0, 0};
 uint8_t rx_payload[20];
 uint32_t status_reg;
+#if RAND == 1
 int random_starts[20] = {24, 68, 21, 88, 64, 91, 84, 89, 33, 94, 42, 83, 87, 99, 22, 28, 14, 2, 36, 70};
-// int random_starts[20] = {96, 84, 13, 73, 24, 69, 82, 64, 67, 43, 74, 83, 5, 20, 7, 21, 36, 81, 47, 11};
-// int random_starts[20] = {50, 73, 70, 8, 99, 27, 64, 18, 25, 48, 46, 23, 49, 41, 51, 6, 4, 94, 69, 40};
-// int random_starts[20] = {73, 84, 6, 79, 39, 72, 92, 53, 94, 23, 52, 28, 68, 70, 14, 38, 20, 44, 27, 82};
-// int random_starts[20] = {75, 48, 85, 73, 37, 46, 88, 11, 15, 13, 12, 62, 80, 44, 91, 14, 25, 57, 84, 16};
+#endif
+#if RAND == 2
+int random_starts[20] = {96, 84, 13, 73, 24, 69, 82, 64, 67, 43, 74, 83, 5, 20, 7, 21, 36, 81, 47, 11};
+#endif
+#if RAND == 3
+int random_starts[20] = {50, 73, 70, 8, 99, 27, 64, 18, 25, 48, 46, 23, 49, 41, 51, 6, 4, 94, 69, 40};
+#endif
+#if RAND == 4
+int random_starts[20] = {73, 84, 6, 79, 39, 72, 92, 53, 94, 23, 52, 28, 68, 70, 14, 38, 20, 44, 27, 82};
+#endif
+#if RAND == 5
+int random_starts[20] = {75, 48, 85, 73, 37, 46, 88, 11, 15, 13, 12, 62, 80, 44, 91, 14, 25, 57, 84, 16};
+#endif
 
 
 PROCESS_THREAD(range_process, ev, data){
@@ -101,7 +111,7 @@ PROCESS_THREAD(range_process, ev, data){
 
   
   if(deployment_set_node_id_ieee_addr()){
-    printf("NODE addr set successfully: %d\n", node_id);
+    printf("NODE addr set successfully: %d, %d\n", node_id, random_starts[0]);
   }else{
     printf("Failed to set nodeID\n");
   }
@@ -109,7 +119,7 @@ PROCESS_THREAD(range_process, ev, data){
   etimer_set(&et, (random_starts[(node_id % 20)] % 20) * CLOCK_SECOND);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
-  printf("STARTING advertiser %d\n", node_id);
+  printf("STARTING advertiser %d, %d\n", node_id, (random_starts[(node_id % 20)] % 20));
   dwt_configure(&config);
   dwt_configuretxrf(&txConf);
   dwt_forcetrxoff();

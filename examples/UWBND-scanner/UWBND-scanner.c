@@ -71,7 +71,7 @@ typedef enum{
 
 /*---------------------------------------------------------------------------*/
 
-#define SCAN_INTERVAL      4485
+#define SCAN_INTERVAL      WAIT_TIME
 #define SCAN_DURATION      3000
 /*---------------------------------------------------------------------------*/
 
@@ -184,7 +184,7 @@ PROCESS_THREAD(range_process, ev, data)
   while (1){
     
     dwt_forcetrxoff();
-    printf("Start Scanning\n");
+    printf("Start Scanning %d\n", SCAN_INTERVAL);
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     etimer_set(&et, SCAN_DURATION);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
