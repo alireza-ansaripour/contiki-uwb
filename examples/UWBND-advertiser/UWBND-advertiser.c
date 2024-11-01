@@ -77,7 +77,7 @@ typedef struct{
 #define SNIFF_INTERVAL                  IPI
 #define RAPID_SNIFF_INTERVAL            50
 #define TIMEOUT_MS                      550
-#define RANDOM_TIME                     10
+#define RANDOM_TIME                     50
 #define SNIFF_LEN                       3
 /*---------------------------------------------------------------------------*/
 dwt_config_t config = {
