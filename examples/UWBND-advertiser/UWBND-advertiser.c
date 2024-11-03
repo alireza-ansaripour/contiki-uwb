@@ -101,6 +101,7 @@ int random_starts[20] = {73, 84, 6, 79, 39, 72, 92, 53, 94, 23, 52, 28, 68, 70, 
 int random_starts[20] = {75, 48, 85, 73, 37, 46, 88, 11, 15, 13, 12, 62, 80, 44, 91, 14, 25, 57, 84, 16};
 #endif
 
+unsigned short cca_wait;
 
 PROCESS_THREAD(range_process, ev, data){
   static struct etimer et;
@@ -116,6 +117,9 @@ PROCESS_THREAD(range_process, ev, data){
     printf("Failed to set nodeID\n");
   }
 
+  etimer_set(&et, 2 * CLOCK_SECOND);
+  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
   etimer_set(&et, (random_starts[(node_id % 20)] % 20) * CLOCK_SECOND);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
@@ -125,6 +129,7 @@ PROCESS_THREAD(range_process, ev, data){
   dwt_forcetrxoff();
   dwt_setpreambledetecttimeout(100);  
   payload[2] = node_id;
+  random_init(random_starts[(node_id % 20)]);
   clock_init();
   memcpy(&payload[2], (uint16_t *) &node_id, 2);
 
@@ -135,7 +140,24 @@ PROCESS_THREAD(range_process, ev, data){
   //                 DWT_INT_ARFE, 1);
   
   dwt_writetxdata(sizeof(payload), payload, 0);
+  dwt_writetxfctrl(sizeof(payload), 0, 0);
+  dwt_starttx(DWT_START_TX_IMMEDIATE);
+  etimer_set(&et, 2);
+  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  
+  status_reg = dwt_read32bitreg(SYS_STATUS_ID);
+
+  if (status_reg & SYS_STATUS_TXFRS){
+    dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
+  }
+
+
   while (1){
+    cca_wait = random_rand() % 10;
+    
+    etimer_set(&et, T_ADV - cca_wait);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
     dwt_writetxfctrl(sizeof(payload), 0, 0);
     dwt_starttx(DWT_START_TX_IMMEDIATE);
     etimer_set(&et, 2);
@@ -144,10 +166,16 @@ PROCESS_THREAD(range_process, ev, data){
     status_reg = dwt_read32bitreg(SYS_STATUS_ID);
 
     if (status_reg & SYS_STATUS_TXFRS){
+      printf("ADV sent %d\n", node_id);
       dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
     }
     
     dwt_forcetrxoff();
+
+    
+    etimer_set(&et, cca_wait);
+    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
     // etimer_set(&et, RESP_WAIT);
     // PROCESS_WAIT_UNTIL(etimer_expired(&et));
     // dwt_rxenable(DWT_START_RX_IMMEDIATE);
@@ -168,8 +196,6 @@ PROCESS_THREAD(range_process, ev, data){
 
     // }
     // dwt_forcetrxoff();
-    etimer_set(&et, T_ADV);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
     
     
 

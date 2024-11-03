@@ -191,6 +191,7 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_forcetrxoff();
     etimer_set(&et, SCAN_INTERVAL -  SCAN_DURATION);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    printf("END Scanning \n", SCAN_INTERVAL);
     
 
     
