@@ -117,10 +117,10 @@ PROCESS_THREAD(range_process, ev, data){
     printf("Failed to set nodeID\n");
   }
 
-  etimer_set(&et, 2 * CLOCK_SECOND);
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  // etimer_set(&et, 2 * CLOCK_SECOND);
+  // PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
-  etimer_set(&et, (random_starts[(node_id % 20)] % 20) * CLOCK_SECOND);
+  etimer_set(&et, (random_starts[(node_id % 20)] % 15) * CLOCK_SECOND);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
   printf("STARTING advertiser %d, %d\n", node_id, (random_starts[(node_id % 20)] % 20));

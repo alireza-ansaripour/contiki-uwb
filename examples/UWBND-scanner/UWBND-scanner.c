@@ -178,6 +178,10 @@ PROCESS_THREAD(range_process, ev, data)
   clock_init();
   dwt_writetxdata(sizeof(msg), msg, 0);
   dwt_writetxfctrl(sizeof(msg), 0, 0);
+  
+  etimer_set(&et, 17 * CLOCK_SECOND);
+  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  
   printf("Starting scanner:%d \n", node_id);
   dwt_setpreambledetecttimeout(0);
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
@@ -189,8 +193,8 @@ PROCESS_THREAD(range_process, ev, data)
     etimer_set(&et, SCAN_DURATION);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
     dwt_forcetrxoff();
-    etimer_set(&et, SCAN_INTERVAL -  SCAN_DURATION);
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
+    // etimer_set(&et, SCAN_INTERVAL -  SCAN_DURATION);
+    // PROCESS_WAIT_UNTIL(etimer_expired(&et));
     printf("END Scanning \n", SCAN_INTERVAL);
     
 
