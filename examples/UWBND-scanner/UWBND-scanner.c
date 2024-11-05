@@ -79,10 +79,10 @@ typedef enum{
 #define IPI              5
 #define WAC1_TIME        505
 #define WAC2_TIME        52
-#define REPS_PER_SESSION 3
-#define DISCOVER_MODE    DIS_TWO_WAY
+#define REPS_PER_SESSION 1
+#define DISCOVER_MODE    DIS_ONE_WAY
 #define RANDOM_INTERVAL  50
-#define REPLY_WAIT_TIME  (WAC2_TIME + RANDOM_INTERVAL +24)
+#define REPLY_WAIT_TIME  (WAC2_TIME +  (2 * RANDOM_INTERVAL) +24)
 #define SCAN_INTERVAL      WAIT_TIME
 /*---------------------------------------------------------------------------*/
 
@@ -138,6 +138,7 @@ void tx_ok_cb(const dwt_cb_data_t *cb_data){
     dwt_starttx(DWT_START_TX_IMMEDIATE);
   }
 }
+
 
 void rx_ok_cb(const dwt_cb_data_t *cb_data){
   dwt_forcetrxoff();
@@ -207,11 +208,17 @@ PROCESS_THREAD(range_process, ev, data)
   dwt_writetxdata(sizeof(msg), msg, 0);
   dwt_writetxfctrl(sizeof(msg), 0, 0);
 
+  
+  random_init(node_id);
+
+  
+  etimer_set(&et, (random_rand() % 3) * CLOCK_SECOND); // TX WaC1
+  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  
   printf("Starting scanner:%d, %d \n", node_id, SCAN_INTERVAL);
 
 
   
-  random_init(node_id);
   dwt_setpreambledetecttimeout(0);
   index_cnt = 0;
   printf("_______________________ NEW SESSION ____________________\n");
@@ -229,6 +236,7 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     etimer_set(&et, (node_id % 10) * 5 + 10); // TX WaC1
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
 
     dwt_forcetrxoff();
     config.prf = DWT_PRF_64M;
@@ -367,7 +375,7 @@ PROCESS_THREAD(range_process, ev, data)
     dwt_rxenable(DWT_START_RX_IMMEDIATE);
     current_time = clock_time();
     listen_start_time = clock_time();
-    while (current_time - listen_start_time < (WAC2_TIME + 20 + 100)){
+    while (current_time - listen_start_time < (REPLY_WAIT_TIME)){
       // if (send_reply == 1){
       //   break;
       // }
@@ -375,6 +383,8 @@ PROCESS_THREAD(range_process, ev, data)
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
       current_time = clock_time();
     }
+    printf("End listening\n");
+    dwt_forcetrxoff();
 
 # if (DISCOVER_MODE == DIS_TWO_WAY)
     if (send_reply){
@@ -418,8 +428,12 @@ PROCESS_THREAD(range_process, ev, data)
         report.ids[i] = 0;
       }
       printf("\n");
-      etimer_set(&et, (SCAN_INTERVAL)); // TX WaC1
+      // etimer_set(&et, (SCAN_INTERVAL)); // TX WaC1
+      // PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
+      etimer_set(&et, (random_rand() % 10) * 300); // TX WaC1
       PROCESS_WAIT_UNTIL(etimer_expired(&et));
+
       index_cnt = 0;
       printf("_______________________ NEW SESSION ____________________\n");
       reps = 0;

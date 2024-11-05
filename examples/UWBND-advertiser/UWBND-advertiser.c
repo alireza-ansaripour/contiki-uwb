@@ -192,10 +192,10 @@ PROCESS_THREAD(range_process, ev, data){
 
   random_init(clock_time());
 
-  wait_time = random_starts[(node_id % 20)] % 20;
+  // wait_time = random_starts[(node_id % 20)] % 20;
   
-  etimer_set(&et, (random_starts[(node_id % 20)] % 20) * CLOCK_SECOND);
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  // etimer_set(&et, (random_starts[(node_id % 20)] % 20) * CLOCK_SECOND);
+  // PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
 
   printf("STARTING advertiser %d, %d\n", node_id, random_starts[(node_id % 20)] % 20);
