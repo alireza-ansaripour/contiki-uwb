@@ -212,7 +212,7 @@ PROCESS_THREAD(range_process, ev, data)
   random_init(node_id);
 
   
-  etimer_set(&et, (random_rand() % 3) * CLOCK_SECOND); // TX WaC1
+  etimer_set(&et, 17 * CLOCK_SECOND); // TX WaC1
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
   
   printf("Starting scanner:%d, %d \n", node_id, SCAN_INTERVAL);
@@ -431,8 +431,8 @@ PROCESS_THREAD(range_process, ev, data)
       // etimer_set(&et, (SCAN_INTERVAL)); // TX WaC1
       // PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
-      etimer_set(&et, (random_rand() % 10) * 300); // TX WaC1
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      // etimer_set(&et, (random_rand() % 10) * 300); // TX WaC1
+      // PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
       index_cnt = 0;
       printf("_______________________ NEW SESSION ____________________\n");
