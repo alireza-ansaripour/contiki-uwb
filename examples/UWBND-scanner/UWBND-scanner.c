@@ -79,15 +79,17 @@ typedef enum{
 #define IPI              5
 #define WAC1_TIME        505
 #define WAC2_TIME        52
-#define REPS_PER_SESSION 1
+#define REPS_PER_SESSION 3
 #define DISCOVER_MODE    DIS_ONE_WAY
 #define RANDOM_INTERVAL  50
 #define REPLY_WAIT_TIME  (WAC2_TIME +  (2 * RANDOM_INTERVAL) +24)
-#define SCAN_INTERVAL      WAIT_TIME
+// #define SCAN_INTERVAL    WAIT_TIME
+#define WT       WAIT_TIME  
 /*---------------------------------------------------------------------------*/
 
 uint8_t payload[10];
 uint8_t msg[7] = {0xbe, 0, 0, 0, 0, 0, 0};
+int wait_time = WT;
 uint8_t stop_trans = 0;
 static int index_cnt = 0;
 static int error_cnt = 0;
@@ -156,8 +158,8 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data){
         return;
       }
     }
-    
-    report.ids[index_cnt++] = *n_id;
+    if (index_cnt < 20)
+      report.ids[index_cnt++] = *n_id;
   }
   if (payload[0] == 0xbe){
     wac_detected = 1;
@@ -212,10 +214,10 @@ PROCESS_THREAD(range_process, ev, data)
   random_init(node_id);
 
   
-  etimer_set(&et, 17 * CLOCK_SECOND); // TX WaC1
+  etimer_set(&et, wait_time * CLOCK_SECOND); // TX WaC1
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
   
-  printf("Starting scanner:%d, %d \n", node_id, SCAN_INTERVAL);
+  printf("Starting scanner:%d, %d \n", node_id, wait_time);
 
 
   

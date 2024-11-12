@@ -184,8 +184,7 @@ PROCESS_THREAD(range_process, ev, data){
   
 
 
-  detection_status = RX_WAK_P1;
-  wac1_sniff_interval = SNIFF_INTERVAL;
+ 
   
   etimer_set(&et, node_id % 20);
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
@@ -198,7 +197,9 @@ PROCESS_THREAD(range_process, ev, data){
   PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
 
-  printf("STARTING advertiser %d, %d\n", node_id, random_starts[(node_id % 20)] % 20);
+  printf("STARTING advertiser %d, %d\n", node_id, random_starts[(node_id % 20)] % 15);
+  detection_status = RX_WAK_P1;
+  wac1_sniff_interval = SNIFF_INTERVAL;
   while (1){
     // dw1000_spi_set_slow_rate();
     // dwt_softreset();
