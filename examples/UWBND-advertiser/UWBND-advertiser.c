@@ -76,7 +76,7 @@ typedef struct{
 #define IPI                             500
 #define SNIFF_INTERVAL                  IPI
 #define RAPID_SNIFF_INTERVAL            50
-#define TIMEOUT_MS                      550
+#define TIMEOUT_MS                      150
 #define RANDOM_TIME                     50
 #define SNIFF_LEN                       3
 /*---------------------------------------------------------------------------*/
@@ -132,9 +132,9 @@ PROCESS_THREAD(report_stat, ev, data){
   static struct etimer et;
   PROCESS_BEGIN();
   while (1){
-    etimer_set(&et, CLOCK_SECOND * 5);
+    etimer_set(&et, CLOCK_SECOND * 60);
     PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    // printf("STAT: SNIFF1: %d, Sniff2 %d, TX %d, TO %d\n", counter.sniff1, counter.sniff2, counter.TX, counter.TO);
+    printf("STAT: SNIFF1: %d, Sniff2 %d, TX %d, TO %d\n", counter.sniff1, counter.sniff2, counter.TX, counter.TO);
     
   }
   PROCESS_END();
@@ -186,15 +186,15 @@ PROCESS_THREAD(range_process, ev, data){
 
  
   
-  etimer_set(&et, node_id % 20);
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  // etimer_set(&et, node_id % 20);
+  // PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
   random_init(clock_time());
 
   // wait_time = random_starts[(node_id % 20)] % 20;
   
-  etimer_set(&et, (random_starts[(node_id % 20)] % 15) * CLOCK_SECOND);
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
+  // etimer_set(&et, (random_starts[(node_id % 20)] % 15) * CLOCK_SECOND);
+  // PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
 
   printf("STARTING advertiser %d, %d\n", node_id, random_starts[(node_id % 20)] % 15);

@@ -83,13 +83,13 @@ typedef enum{
 #define DISCOVER_MODE    DIS_ONE_WAY
 #define RANDOM_INTERVAL  50
 #define REPLY_WAIT_TIME  (WAC2_TIME +  (2 * RANDOM_INTERVAL) +24)
-// #define SCAN_INTERVAL    WAIT_TIME
-#define WT       WAIT_TIME  
+#define SCAN_INTERVAL    WAIT_TIME
+// #define WT       WAIT_TIME  
 /*---------------------------------------------------------------------------*/
 
 uint8_t payload[10];
 uint8_t msg[7] = {0xbe, 0, 0, 0, 0, 0, 0};
-int wait_time = WT;
+// int wait_time = WT;
 uint8_t stop_trans = 0;
 static int index_cnt = 0;
 static int error_cnt = 0;
@@ -214,10 +214,8 @@ PROCESS_THREAD(range_process, ev, data)
   random_init(node_id);
 
   
-  etimer_set(&et, wait_time * CLOCK_SECOND); // TX WaC1
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
   
-  printf("Starting scanner:%d, %d \n", node_id, wait_time);
+  printf("Starting scanner:%d, %d \n", node_id, SCAN_INTERVAL);
 
 
   
@@ -430,8 +428,8 @@ PROCESS_THREAD(range_process, ev, data)
         report.ids[i] = 0;
       }
       printf("\n");
-      // etimer_set(&et, (SCAN_INTERVAL)); // TX WaC1
-      // PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      etimer_set(&et, (SCAN_INTERVAL) * CLOCK_SECOND); // TX WaC1
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
 
       // etimer_set(&et, (random_rand() % 10) * 300); // TX WaC1
       // PROCESS_WAIT_UNTIL(etimer_expired(&et));
